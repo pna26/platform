@@ -35,6 +35,10 @@ data:
         upstream gateways {
             server gateway:8080;
             keepalive 32;
+            # o Service balanceia conexões, não requisições: sem limite, cada
+            # conexão fica no mesmo pod por 1000 requisições e as réplicas que o
+            # HPA cria levam ~1,5 min para receber carga (~35-40 s com 10 s)
+            keepalive_time 10s;
         }
 
         server {

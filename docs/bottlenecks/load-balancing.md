@@ -61,6 +61,7 @@ Pontos além do hands-on 7 do curso:
 |---|---|
 | `resolver 127.0.0.11` + `server gateway:8080 resolve` | O Nginx re-resolve o DNS do Docker a cada 10 s. Com `docker compose up --scale gateway=N` as réplicas novas entram no balanceamento **sem** `nginx -s reload` (no hands-on o Nginx só resolve na inicialização). |
 | `keepalive 32` + `proxy_http_version 1.1` | Reaproveita conexões com o gateway: menos handshakes TCP sob carga. |
+| `keepalive_time 10s` (só no `k8s/lb.yaml`) | No k8s o Nginx fala com o Service `gateway`, que balanceia **conexões**, não requisições: uma conexão aberta fica no mesmo pod. Fechando cada conexão depois de 10 s, as réplicas que o HPA cria entram na divisão em ≈ 35–40 s em vez de ≈ 1,5 min ([achado do teste com HPA](../devops/load-testing.md#achado-balanceamento)). No compose não precisa: lá o Nginx enxerga cada réplica pelo DNS e divide as requisições ele mesmo. |
 | `location /gateway/actuator { return 404; }` | Métricas do actuator ficam só na rede interna (o Prometheus fala direto com o gateway). |
 | `log_format upstream` | O access log mostra qual réplica (`$upstream_addr`) atendeu cada requisição. |
 

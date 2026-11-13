@@ -164,6 +164,9 @@ do gateway quando a CPU média passa de 50 % do `request` (250m → 125m por pod
 
 !!! warning "Antes de começar"
 
+    - **kubectl 1.36 ou mais novo** (`kubectl version --client`): o cluster é 1.37 e o kubectl só tem
+      suporte com até uma versão de diferença. O `--cpu=50%` do terminal 1 não existe antes do 1.34
+      (`unknown flag: --cpu`).
     - **metrics-server** instalado no cluster (o EKS não traz, e o `eks-store.yaml` não instala; sem ele o
       HPA fica em `<unknown>`). Instalar e conferir:
       `kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml`
@@ -188,7 +191,8 @@ do gateway quando a CPU média passa de 50 % do `request` (250m → 125m por pod
     ``` bash
     kubectl autoscale deployment gateway --cpu=50% --min=2 --max=6 -n store
     kubectl get hpa gateway -n store -w
-    # --cpu-percent=50 é a forma antiga: o kubectl 1.36 ainda aceita, mas avisa que foi descontinuada
+    # --cpu=50% existe desde o kubectl 1.34, que descontinuou o --cpu-percent=50 (ainda aceito,
+    # com aviso); num kubectl 1.33 ou anterior, só o --cpu-percent=50 funciona
     ```
 
 === "2 · Pods do gateway"
@@ -227,8 +231,9 @@ pip install playwright imageio-ffmpeg pillow    # uma vez; usa o Edge instalado
 python scripts/hpa-record.py --base-url http://$ELB --name eks-hpa --label "EKS (eks-store)"
 ```
 
-**O que esperar** (visto no [ensaio local](#ensaio-local-kind)): as réplicas novas levam ≈ 1,5 min para
-receber a parte delas da carga ([por quê](#achado-balanceamento)), e na redução os pods removidos
+**O que esperar** (visto no [ensaio local](#ensaio-local-kind)): as réplicas novas levaram ≈ 1,5 min
+para receber a parte delas da carga ([por quê](#achado-balanceamento)); com o `keepalive_time 10s`
+aplicado depois no `lb`, devem levar ≈ 35–40 s. Na redução, os pods removidos
 aparecem como `Error` no terminal 2. Esse `Error` é o código de saída **143** (128 + SIGTERM) que a JVM
 devolve quando o Kubernetes manda o pod parar, conferido no `state.terminated.exitCode` do pod: não é falha.
 
@@ -327,7 +332,8 @@ uma antiga, o que por padrão acontece depois de **1000 requisições** na mesma
 e leva ≈ 1 min para chegar a 1000. No compose não acontece porque lá o Nginx enxerga cada réplica pelo DNS do Docker e
 divide as requisições ele mesmo.
 
-**Correções possíveis (`k8s/lb.yaml`, Leonardo):**
+**Correções possíveis (`k8s/lb.yaml`, Leonardo):** a 1 foi **aplicada** depois do ensaio, então o
+teste no EKS já roda com ela.
 
 1. **Uma linha** no `upstream gateways`: `keepalive_time 10s;` (Nginx ≥ 1.21.3). Cada conexão dura no
    máximo 10 s, então as réplicas novas entram na divisão bem mais cedo. Testado no ensaio, em duas

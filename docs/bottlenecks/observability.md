@@ -97,7 +97,7 @@ que o k6 só mostrava de fora:
 | O cache do token está mesmo poupando o Auth? | `gateway_token_cache_total`: **7.571 hits × 21 misses** na rodada com cache (99,7 %). |
 | Por que 4 réplicas renderam *menos* que 1 na saturação? | CPU da máquina (`system_cpu_usage`) em ≈ 83–85 % nas duas rodadas: as réplicas disputavam os mesmos núcleos. |
 | De onde vieram os 0,57 % de erro na saturação? | `http_server_requests_seconds_count{status="500"}` no gateway (≈ 3.500) → logs do Auth: `BindException` ao chamar o Account (Feign sem pool de conexões). |
-| As réplicas que o HPA criou recebem carga logo? | **Não:** no [teste com HPA](../devops/load-testing.md#ensaio-local-kind), "Requisições/s por réplica" mostrou as 4 novas começando com 0 req/s e a carga dividida por igual só ≈ 1,5 min depois de elas ficarem prontas. O `lb` reaproveita conexões e o Service do Kubernetes balanceia conexões, não requisições ([achado](../devops/load-testing.md#achado-balanceamento)). |
+| As réplicas que o HPA criou recebem carga logo? | **Não:** no [teste com HPA](../devops/load-testing.md#ensaio-local-kind), "Requisições/s por réplica" mostrou as 4 novas começando com 0 req/s e a carga dividida por igual só ≈ 1,5 min depois de elas ficarem prontas. O `lb` reaproveita conexões e o Service do Kubernetes balanceia conexões, não requisições ([achado](../devops/load-testing.md#achado-balanceamento)). Corrigido no `lb` com `keepalive_time 10s` (≈ 35–40 s no ensaio). |
 
 ### Durante o teste com HPA
 

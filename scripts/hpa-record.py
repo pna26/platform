@@ -6,6 +6,7 @@ de janela aberta: uma página local mostra o que cada comando imprime e um Edge
 sem janela tira 2 quadros por segundo. Nada da tela de quem roda entra no vídeo.
 
     terminal 1   kubectl autoscale deployment gateway --cpu=50% --min=2 --max=6
+                 (kubectl 1.33 ou anterior: --cpu-percent=50)
                  kubectl get hpa gateway -w
     terminal 2   kubectl get pods -l app=gateway -o wide -w
     terminal 3   ./scripts/load-test.sh  (k6 no cenário auth)
@@ -88,6 +89,12 @@ class Kube:
     def json(self, *a: str):
         r = self.run(*a, "-o", "json", check=False)
         return json.loads(r.stdout) if r.returncode == 0 and r.stdout.strip() else None
+
+    def cpu_flag(self, pct: int) -> str:
+        """--cpu=50% existe desde o kubectl 1.34; antes dele, só --cpu-percent=50."""
+        h = subprocess.run(self.base + ["autoscale", "--help"], capture_output=True, text=True,
+                           encoding="utf-8", errors="replace").stdout
+        return f"--cpu={pct}%" if "--cpu=" in h else f"--cpu-percent={pct}"
 
 
 # ----------------------------------------------------------------------------- estado
@@ -481,7 +488,7 @@ def main() -> None:
     print(">> gravando:", url)
 
     # 1 e 2: HPA e pods
-    hpa_args = ("autoscale", "deployment", "gateway", f"--cpu={a.cpu}%", f"--min={a.min}", f"--max={a.max}")
+    hpa_args = ("autoscale", "deployment", "gateway", kube.cpu_flag(a.cpu), f"--min={a.min}", f"--max={a.max}")
     panes[0].run(kube.argv(*hpa_args), kube.display(*hpa_args), wait=True)
     panes[0].run(kube.argv("get", "hpa", "gateway", "-w"), kube.display("get", "hpa", "gateway", "-w"))
     pod_args = ("get", "pods", "-l", "app=gateway", "-o", "wide", "-w")
