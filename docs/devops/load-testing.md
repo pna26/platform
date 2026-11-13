@@ -177,14 +177,18 @@ do gateway quando a CPU média passa de 50 % do `request` (250m → 125m por pod
       *Pending*. O roteiro usa `--max=6` para ter folga: a sobra está dividida entre os 2 nós (≈ 0,8 vCPU
       em cada) e um pod não usa pedaços de nós diferentes, então a 7ª e a 8ª podem não caber. Se o grupo
       preferir mostrar o limite, `--max=10` e os *Pending* viram parte do resultado.
+    - **Mais de uma tomada:** antes de repetir o teste, `kubectl rollout restart deployment/auth
+      deployment/account -n store`. No ensaio, o Auth foi morto por falta de memória na segunda rodada
+      pesada seguida ([achado](#achado-oom-auth)).
 
 **Três terminais lado a lado** (no Windows não existe `watch`; o `-w` do `kubectl` faz o mesmo):
 
 === "1 · HPA"
 
     ``` bash
-    kubectl autoscale deployment gateway --cpu-percent=50 --min=2 --max=6 -n store
+    kubectl autoscale deployment gateway --cpu=50% --min=2 --max=6 -n store
     kubectl get hpa gateway -n store -w
+    # --cpu-percent=50 é a forma antiga: o kubectl 1.36 ainda aceita, mas avisa que foi descontinuada
     ```
 
 === "2 · Pods do gateway"
@@ -210,10 +214,148 @@ platô tem 4 min. Depois do teste, o HPA espera **5 min** sem carga antes de red
 para continuar gravando e mostrar a volta para 2.
 
 **Print do Grafana durante o teste** (página de [Observabilidade](../bottlenecks/observability.md)):
-`kubectl port-forward svc/grafana 3000 -n store`, dashboard *Store — plataforma*. Os painéis
-"Requisições/s por réplica" e "CPU por réplica" mostram as réplicas novas entrando e dividindo a carga.
+`kubectl port-forward svc/grafana 3000 -n store`, dashboard *Store — plataforma*. O painel
+"Réplicas no ar ao longo do tempo (HPA)" mostra a subida e a volta para 2; "Requisições/s por réplica"
+e "CPU por réplica" mostram as réplicas novas entrando e dividindo a carga.
+
+**Gravar sem depender de janela:** o `scripts/hpa-record.py` ([código](#codigo)) roda os três
+terminais acima, grava o vídeo e tira os prints do Grafana sozinho (detalhes no
+[ensaio local](#ensaio-local-kind)):
+
+``` bash
+pip install playwright imageio-ffmpeg pillow    # uma vez; usa o Edge instalado
+python scripts/hpa-record.py --base-url http://$ELB --name eks-hpa --label "EKS (eks-store)"
+```
+
+**O que esperar** (visto no [ensaio local](#ensaio-local-kind)): as réplicas novas levam ≈ 1,5 min para
+receber a parte delas da carga ([por quê](#achado-balanceamento)), e na redução os pods removidos
+aparecem como `Error` no terminal 2. Esse `Error` é o código de saída **143** (128 + SIGTERM) que a JVM
+devolve quando o Kubernetes manda o pod parar, conferido no `state.terminated.exitCode` do pod: não é falha.
 
 **Depois:** apagar o HPA (`kubectl delete hpa gateway -n store`) antes de apagar o cluster.
+
+### Ensaio local (kind)
+
+O roteiro acima foi ensaiado em 12/11/2026, antes do dia do EKS, num cluster **kind** (Kubernetes
+dentro do Docker) montado para ficar parecido com o `eks-store` e com **os mesmos manifestos**:
+
+| | `eks-store` (EKS) | Ensaio local (kind) |
+|---|---|---|
+| Kubernetes | 1.37 | 1.37 |
+| Nós | 2 × `t3.medium` | 2 workers com o alocável de um `t3.medium` (1930m de CPU, 3,4 GiB) |
+| Manifestos | `k8s/` e o `k8s/` de cada serviço | os mesmos; muda só a imagem (a do `docker compose build`) |
+| Banco | RDS | Postgres dentro do cluster |
+| Entrada | ELB → `lb` | `localhost:8081` → NodePort do `lb` |
+| HPA | metrics-server | metrics-server |
+
+A conta de capacidade de [Custos](custos-sla.md#o-que-precisa-rodar) se confirmou: com a plataforma no
+ar, cada nó tinha **1050m de CPU reservados de 1930m**, ou seja, cabem mais 3 gateways por nó (+6 no
+total). O ensaio **não** reproduz a latência do EKS (os nós do kind dividem os 12 núcleos da máquina,
+então um nó pode passar de 2 vCPU) nem o caminho pela internet e pelo ELB.
+
+``` bash
+docker compose build              # imagens dos serviços
+./scripts/kind-up.sh              # cluster + plataforma (≈ 4 min)
+python scripts/hpa-record.py      # HPA + k6 + vídeo + prints do Grafana (≈ 11 min)
+kind delete cluster --name store
+```
+
+O `hpa-record.py` roda os três comandos do roteiro e mostra as saídas lado a lado numa página local,
+que um Edge sem janela fotografa 2 vezes por segundo: o vídeo não depende de janela aberta e não mostra
+nada da tela de quem roda. Depois do k6, continua gravando até o HPA voltar a 2 réplicas e salva em
+`load/results/<nome>/` o vídeo (tempo real e 8×), a linha do tempo das réplicas, um resumo e os prints
+do Grafana com o intervalo exato do teste.
+
+#### Resultado do ensaio
+
+| Execução | VUs | Requisições | req/s | p50 (ms) | p95 (ms) | p99 (ms) | Erros | Réplicas (início → máx.) |
+|---|---:|---:|---:|---:|---:|---:|---:|---|
+| kind-hpa | 100 | 435.094 | 1.606,5 | 48 | 148 | 196 | 0,00 % | 2 → 6 |
+
+| Tempo desde o início do k6 | O que aconteceu |
+|---|---|
+| 0 → 20 s | o k6 sobe de 0 para 100 VUs (cenário `auth`, sem pausa entre as requisições) |
+| +27 s | CPU média do gateway em 131 % do `request` (alvo: 50 %): o HPA pede **4** réplicas |
+| +40 s | 4 réplicas no ar e CPU em 206 %: o HPA pede **6**, o máximo |
+| +64 s | as 6 réplicas prontas; nenhuma ficou sem espaço nos nós (*Pending*) |
+| +75 s → +150 s | as réplicas novas passam a receber carga, aos poucos ([achado](#achado-balanceamento)) |
+| +4 min 33 s | o k6 termina: **0 erros** em 435.094 requisições |
+| +10 min | o HPA volta para **2** réplicas, ≈ 5,5 min depois do fim da carga (a espera padrão é de 5 min) |
+
+<video controls preload="metadata" width="100%" src="../hpa/kind-hpa-8x.mp4"></video>
+
+Vídeo **8× mais rápido** (1 min 20 s para 10 min 36 s de teste); o relógio no canto superior direito
+mostra o tempo real. Terminal 1: o HPA (CPU média × alvo e réplicas); terminal 2: os pods do gateway
+nascendo (*Pending* → *ContainerCreating* → *Running*) e, no fim, saindo; terminal 3: o k6. A versão em
+tempo real fica em `load/results/kind-hpa/hpa-tempo-real.mp4` (17 MB, fora do git).
+
+Grafana do cluster durante o teste (do início do k6 ao fim da carga):
+
+![Dashboard Store — plataforma durante o teste com HPA](hpa/kind-hpa-grafana.png)
+
+![Réplicas no ar ao longo do tempo: 2 → 6 → 2](hpa/kind-hpa-replicas.png)
+
+A linha *exchange* do dashboard fica vazia porque o cenário `auth` não chama o câmbio.
+
+#### Achado: as réplicas novas demoram ≈ 1,5 min para receber carga { #achado-balanceamento }
+
+O painel **Requisições/s por réplica** (as faixas empilhadas, uma por réplica) mostrou o que o k6
+sozinho não mostra: as 4 réplicas que o HPA criou ficaram prontas em +64 s, mas **receberam 0 req/s**
+até ≈ +75 s e só dividiram a carga por igual em ≈ +150 s.
+
+![Requisições/s por réplica: as réplicas novas entram aos poucos](hpa/kind-hpa-req-s-por-replica.png)
+
+| Tempo desde o início do k6 | 2 réplicas antigas (req/s cada) | 4 réplicas novas (req/s cada) |
+|---|---|---|
+| +60 s | ≈ 740 | 0 |
+| +90 s | ≈ 520 | 60 – 100 |
+| +120 s | ≈ 360 | 175 – 340 |
+| +150 s | ≈ 255 | 210 – 380 |
+
+A CPU mostra o outro lado: as 4 réplicas novas começam em 85–97 % de 1 CPU **quase sem receber
+requisições** (é a JVM aquecendo: carga de classes e compilação), enquanto as 2 antigas seguram a
+carga em ≈ 60–70 %. Só por volta de +140 s todas ficam em ≈ 30–40 %.
+
+![CPU por réplica: as novas aquecem e depois todas convergem](hpa/kind-hpa-cpu-por-replica.png)
+
+**Por quê:** o `lb` (Nginx) fala com o Service `gateway`, que é um IP virtual, e **reaproveita as
+conexões** (`keepalive 32` no `upstream`). O Service balanceia **conexões, não requisições**: cada
+conexão nova é sorteada entre os pods, mas uma conexão aberta fica no pod em que nasceu. As réplicas
+novas só recebem conexões novas e, com a carga estável, o Nginx só abre uma conexão nova quando fecha
+uma antiga, o que por padrão acontece depois de **1000 requisições** na mesma conexão
+(`keepalive_requests`). Com ≈ 100 requisições em paralelo e ≈ 1.600 req/s, cada conexão faz ≈ 16 req/s
+e leva ≈ 1 min para chegar a 1000. No compose não acontece porque lá o Nginx enxerga cada réplica pelo DNS do Docker e
+divide as requisições ele mesmo.
+
+**Correções possíveis (`k8s/lb.yaml`, Leonardo):**
+
+1. **Uma linha** no `upstream gateways`: `keepalive_time 10s;` (Nginx ≥ 1.21.3). Cada conexão dura no
+   máximo 10 s, então as réplicas novas entram na divisão bem mais cedo. Testado no ensaio, em duas
+   rodadas de 3 min: a carga ficou dividida por igual **≈ 35–40 s** depois de as réplicas novas ficarem
+   prontas, contra ≈ 86 s sem a linha, e a rodada com Auth e Account recém-reiniciados terminou com
+   **0 erros**. A vazão dessas rodadas não serve de comparação (numa o Auth caiu, como no achado
+   abaixo; na outra Auth e Account tinham acabado de reiniciar).
+2. **Igual ao compose:** um Service *headless* (`clusterIP: None`) para o gateway e, no Nginx,
+   `server <service-headless>:8080 resolve;` com `resolver kube-dns.kube-system.svc.cluster.local valid=10s;`.
+   O Nginx passa a enxergar cada pod e divide as requisições ele mesmo, como no compose.
+
+#### Achado: o Auth foi morto por falta de memória na rodada seguinte { #achado-oom-auth }
+
+Na rodada de comparação acima (a segunda rodada pesada seguida), o Auth foi **OOMKilled** (código
+137) aos +3 min: nos ≈ 30–40 s seguintes, enquanto ele reiniciava, o gateway recebeu
+`connection refused` e `connect timeout` do Auth e devolveu **500** em **0,52 %** das requisições
+(1.413 falhas, todas em `GET /auth/me`).
+
+A causa está no Dockerfile dos quatro serviços Java: `-XX:MaxRAMPercentage=75`. Com o limite de 512 Mi
+do Auth, o heap pode chegar a 384 Mi e sobram só 128 Mi para o resto da JVM (metaspace, threads,
+código compilado), pouco para um Spring Boot sob carga. A primeira rodada fez o heap crescer e a
+segunda passou do limite. O Account, com a mesma configuração, estava em 393 Mi de 512 Mi.
+
+- **No dia do EKS:** entre uma tomada e outra do vídeo, reiniciar o Auth e o Account
+  (`kubectl rollout restart deployment/auth deployment/account -n store`).
+- **Correção sugerida (Nicolas):** `-XX:MaxRAMPercentage=60` (heap até ≈ 307 Mi, ≈ 205 Mi para o resto)
+  ou limite de 768 Mi no `k8s.yaml` do Auth e do Account. O `request`, que é o que o scheduler reserva,
+  não muda, então a conta de capacidade de [Custos](custos-sla.md#o-que-precisa-rodar) continua valendo.
 
 ### Resultado no EKS
 
@@ -246,4 +388,16 @@ para continuar gravando e mostrar a volta para 2.
 
     ``` { .bash .copy }
     --8<-- "scripts/load-matrix.sh"
+    ```
+
+=== "scripts/kind-up.sh"
+
+    ``` { .bash .copy }
+    --8<-- "scripts/kind-up.sh"
+    ```
+
+=== "scripts/hpa-record.py"
+
+    ``` { .python .copy }
+    --8<-- "scripts/hpa-record.py"
     ```

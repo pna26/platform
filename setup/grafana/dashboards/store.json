@@ -29,7 +29,7 @@
       "fieldConfig": { "defaults": { "unit": "percentunit", "decimals": 2,
         "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null }, { "color": "orange", "value": 0.001 }, { "color": "red", "value": 0.01 } ] } }, "overrides": [] },
       "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background", "graphMode": "none" },
-      "targets": [{ "refId": "A", "expr": "sum(rate(http_server_requests_seconds_count{application=\"gateway\",status=~\"5..\"}[1m])) / clamp_min(sum(rate(http_server_requests_seconds_count{application=\"gateway\"}[1m])), 1e-9)" }]
+      "targets": [{ "refId": "A", "expr": "(sum(rate(http_server_requests_seconds_count{application=\"gateway\",status=~\"5..\"}[1m])) or vector(0)) / clamp_min(sum(rate(http_server_requests_seconds_count{application=\"gateway\"}[1m])), 1e-9)" }]
     },
     {
       "id": 3, "type": "stat", "title": "Réplicas no ar",
@@ -50,8 +50,17 @@
 
     { "type": "row", "title": "Gateway", "collapsed": false, "gridPos": { "h": 1, "w": 24, "x": 0, "y": 5 }, "id": 101, "panels": [] },
     {
+      "id": 16, "type": "timeseries", "title": "Réplicas no ar ao longo do tempo (HPA)",
+      "description": "Alvos que o Prometheus raspa por serviço: mostra o HPA criando e removendo réplicas do gateway.",
+      "gridPos": { "h": 7, "w": 24, "x": 0, "y": 6 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "none", "decimals": 0, "min": 0,
+        "custom": { "lineInterpolation": "stepAfter", "lineWidth": 2, "fillOpacity": 10 } }, "overrides": [] },
+      "targets": [{ "refId": "A", "expr": "sum by (job) (up{job=~\"gateway|exchange\"})", "legendFormat": "{{job}}" }]
+    },
+    {
       "id": 5, "type": "timeseries", "title": "Requisições/s por status",
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 6 },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 13 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "fieldConfig": { "defaults": { "unit": "reqps", "custom": { "fillOpacity": 10 } }, "overrides": [] },
       "targets": [{ "refId": "A", "expr": "sum by (status) (rate(http_server_requests_seconds_count{application=\"gateway\"}[1m]))", "legendFormat": "{{status}}" }]
@@ -59,7 +68,7 @@
     {
       "id": 6, "type": "timeseries", "title": "Latência no gateway (média e máximo)",
       "description": "O Spring Boot não publica buckets de histograma por padrão, então mostramos a média (sum/count) e o máximo da janela. Percentis do ponto de vista do cliente: painéis do k6.",
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 6 },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 13 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "fieldConfig": { "defaults": { "unit": "s", "custom": { "fillOpacity": 0 } }, "overrides": [] },
       "targets": [
@@ -69,44 +78,44 @@
     },
     {
       "id": 7, "type": "timeseries", "title": "Requisições/s por réplica (balanceamento)",
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 14 },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 21 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "fieldConfig": { "defaults": { "unit": "reqps", "custom": { "fillOpacity": 10, "stacking": { "mode": "normal" } } }, "overrides": [] },
       "targets": [{ "refId": "A", "expr": "sum by (instance) (rate(http_server_requests_seconds_count{application=\"gateway\"}[1m]))", "legendFormat": "{{instance}}" }]
     },
     {
       "id": 8, "type": "timeseries", "title": "Cache do token (Redis): hit / miss / error por segundo",
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 14 },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 21 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "fieldConfig": { "defaults": { "unit": "ops", "custom": { "fillOpacity": 10 } }, "overrides": [] },
       "targets": [{ "refId": "A", "expr": "sum by (result) (rate(gateway_token_cache_total[1m]))", "legendFormat": "{{result}}" }]
     },
     {
       "id": 9, "type": "timeseries", "title": "Heap da JVM por réplica",
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 22 },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 29 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "fieldConfig": { "defaults": { "unit": "bytes", "custom": { "fillOpacity": 0 } }, "overrides": [] },
       "targets": [{ "refId": "A", "expr": "sum by (instance) (jvm_memory_used_bytes{application=\"gateway\",area=\"heap\"})", "legendFormat": "{{instance}}" }]
     },
     {
       "id": 10, "type": "timeseries", "title": "CPU por réplica",
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 22 },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 29 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "fieldConfig": { "defaults": { "unit": "percentunit", "custom": { "fillOpacity": 0 } }, "overrides": [] },
       "targets": [{ "refId": "A", "expr": "process_cpu_usage{application=\"gateway\"}", "legendFormat": "{{instance}}" }]
     },
 
-    { "type": "row", "title": "Exchange", "collapsed": false, "gridPos": { "h": 1, "w": 24, "x": 0, "y": 30 }, "id": 102, "panels": [] },
+    { "type": "row", "title": "Exchange", "collapsed": false, "gridPos": { "h": 1, "w": 24, "x": 0, "y": 37 }, "id": 102, "panels": [] },
     {
       "id": 11, "type": "timeseries", "title": "Cotações/s por status",
-      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 31 },
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 38 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "fieldConfig": { "defaults": { "unit": "reqps", "custom": { "fillOpacity": 10 } }, "overrides": [] },
       "targets": [{ "refId": "A", "expr": "sum by (status) (rate(exchange_http_server_requests_seconds_count{route=\"/exchange/{from_}/{to}\"}[1m]))", "legendFormat": "{{status}}" }]
     },
     {
       "id": 12, "type": "timeseries", "title": "Latência do exchange (p50 / p95 / p99)",
-      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 31 },
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 38 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "fieldConfig": { "defaults": { "unit": "s", "custom": { "fillOpacity": 0 } }, "overrides": [] },
       "targets": [
@@ -117,7 +126,7 @@
     },
     {
       "id": 13, "type": "timeseries", "title": "Cache da cotação + chamadas à API externa",
-      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 31 },
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 38 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "fieldConfig": { "defaults": { "unit": "ops", "custom": { "fillOpacity": 10 } }, "overrides": [] },
       "targets": [
@@ -126,11 +135,11 @@
       ]
     },
 
-    { "type": "row", "title": "Teste de carga (k6)", "collapsed": false, "gridPos": { "h": 1, "w": 24, "x": 0, "y": 39 }, "id": 103, "panels": [] },
+    { "type": "row", "title": "Teste de carga (k6)", "collapsed": false, "gridPos": { "h": 1, "w": 24, "x": 0, "y": 46 }, "id": 103, "panels": [] },
     {
       "id": 14, "type": "timeseries", "title": "Usuários virtuais e requisições/s (k6)",
       "description": "Só aparece durante um ./scripts/load-test.sh (o k6 envia as métricas por remote write).",
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 40 },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 47 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "fieldConfig": { "defaults": { "custom": { "fillOpacity": 0 } }, "overrides": [ { "matcher": { "id": "byName", "options": "req/s" }, "properties": [ { "id": "custom.axisPlacement", "value": "right" }, { "id": "unit", "value": "reqps" } ] } ] },
       "targets": [
@@ -140,7 +149,7 @@
     },
     {
       "id": 15, "type": "timeseries", "title": "Latência vista pelo cliente (k6)",
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 40 },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 47 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "fieldConfig": { "defaults": { "unit": "s", "custom": { "fillOpacity": 0 } }, "overrides": [] },
       "targets": [

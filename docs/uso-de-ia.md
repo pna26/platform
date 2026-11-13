@@ -107,9 +107,10 @@ manifestos k8s do gateway, estilo da documentação).
 |---|---|---|
 | Exchange (`pna26/exchange-service`) | Sim — código, testes, Dockerfile, k8s e CI | FastAPI + `httpx`. 21 testes passando; testado contra a AwesomeAPI real e de ponta a ponta pelo gateway (smoke test). |
 | Bottleneck: cache da cotação | Sim | TTL, lock contra *stampede* e *stale-if-error*; medido no teste de carga (p95 49 → 4 ms). |
-| Observabilidade (Prometheus + Grafana) | Sim | Configs do compose e do EKS, dashboard em JSON. Verificado no compose local; **no EKS ainda não testado** (o cluster não estava no ar). |
+| Observabilidade (Prometheus + Grafana) | Sim | Configs do compose e do EKS, dashboard em JSON. Verificado no compose local e, em 12/11, no ensaio em kind com os manifestos do EKS; **no EKS real ainda não testado** (o cluster não estava no ar). |
 | Testes de carga (k6) | Scripts sim; **números não** | Os resultados são os que saíram da bateria rodada na minha máquina em 05/11/2026 (`load/results/RESULTS.md`). A IA executou os comandos e escreveu a análise a partir dos números, do Prometheus e dos logs. |
 | PaaS, custos e SLA | Sim — texto e contas | Preços conferidos em 05/11/2026 (EKS, EC2, Fargate, Classic LB, IPv4). |
+| Teste com HPA: vídeo e prints do Grafana | Sim — scripts, execução e análise | Feito em 12/11 num cluster kind igual ao `eks-store` (o EKS não estava acessível), com `scripts/kind-up.sh` e `scripts/hpa-record.py`. A IA rodou o teste, gravou o vídeo (Edge sem janela, sem capturar a minha tela) e escreveu a análise a partir do k6, do Prometheus e dos logs. **É ensaio local, não o EKS:** a tabela do EKS fica para o dia do EKS. |
 
 **O que eu (Gabriel) fiz sem IA:**
 

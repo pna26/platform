@@ -46,7 +46,7 @@ flowchart LR
 | exchange | `exchange_http_server_requests_seconds` (histograma, label `route` = template) | req/s e p50/p95/p99 da cotação |
 | exchange | `exchange_quote_cache_total{result}` | acerto do [cache da cotação](exchange-cache.md) |
 | exchange | `exchange_upstream_request_seconds{outcome}` | chamadas e latência da API externa |
-| Prometheus | `up{job}` | réplicas no ar |
+| Prometheus | `up{job}` | réplicas no ar (o número e a curva do HPA) |
 | k6 | `k6_vus`, `k6_http_reqs_total`, `k6_http_req_duration_p95/p99` | carga aplicada e latência vista pelo cliente |
 
 O label `route` do exchange usa o **template** da rota (`/exchange/{from_}/{to}`), não a URL real: senão
@@ -59,7 +59,7 @@ cada par de moedas criaria uma série nova no Prometheus (explosão de cardinali
 | Linha | Painéis |
 |---|---|
 | Visão geral | req/s, % de 5xx (verde/laranja/vermelho), réplicas no ar por serviço, % de acerto do cache do token |
-| Gateway | req/s por status, latência média/máxima, **req/s por réplica** (mostra o balanceamento), cache hit/miss/error, heap e CPU por réplica |
+| Gateway | **réplicas no ar ao longo do tempo** (mostra o HPA), req/s por status, latência média/máxima, **req/s por réplica** (mostra o balanceamento), cache hit/miss/error, heap e CPU por réplica |
 | Exchange | cotações/s por status, p50/p95/p99, cache da cotação × chamadas à API externa |
 | Teste de carga (k6) | VUs e req/s, p95/p99 do cliente por cenário |
 
@@ -97,6 +97,20 @@ que o k6 só mostrava de fora:
 | O cache do token está mesmo poupando o Auth? | `gateway_token_cache_total`: **7.571 hits × 21 misses** na rodada com cache (99,7 %). |
 | Por que 4 réplicas renderam *menos* que 1 na saturação? | CPU da máquina (`system_cpu_usage`) em ≈ 83–85 % nas duas rodadas: as réplicas disputavam os mesmos núcleos. |
 | De onde vieram os 0,57 % de erro na saturação? | `http_server_requests_seconds_count{status="500"}` no gateway (≈ 3.500) → logs do Auth: `BindException` ao chamar o Account (Feign sem pool de conexões). |
+| As réplicas que o HPA criou recebem carga logo? | **Não:** no [teste com HPA](../devops/load-testing.md#ensaio-local-kind), "Requisições/s por réplica" mostrou as 4 novas começando com 0 req/s e a carga dividida por igual só ≈ 1,5 min depois de elas ficarem prontas. O `lb` reaproveita conexões e o Service do Kubernetes balanceia conexões, não requisições ([achado](../devops/load-testing.md#achado-balanceamento)). |
+
+### Durante o teste com HPA
+
+Ensaio local do teste com HPA ([roteiro e resultado](../devops/load-testing.md#ensaio-local-kind)),
+do início do k6 ao fim da carga: o gateway sobe de 2 para 6 réplicas em ≈ 1 min, com 0 % de erros 5xx
+e o cache do token acertando 100 %. A linha *exchange* fica vazia porque o cenário `auth` não chama o
+câmbio.
+
+![Dashboard Store — plataforma durante o teste com HPA](../devops/hpa/kind-hpa-grafana.png)
+
+Para esse teste o dashboard ganhou o painel **Réplicas no ar ao longo do tempo (HPA)**
+(`sum by (job) (up{job=~"gateway|exchange"})`, em degraus), e o painel "Erros 5xx" passou a mostrar
+**0 %** em vez de *No data* quando não há nenhum erro (`... or vector(0)` no numerador).
 
 !!! tip "Sugestão para o gateway (Leonardo)"
 

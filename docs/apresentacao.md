@@ -26,7 +26,7 @@ próximos passos. Vídeo de **1 a 2 minutos** com o projeto e os bottlenecks.
 | Cache do token (Redis) | Leonardo | 3.001 requisições autenticadas → **1** chamada ao Auth (3.000 hits) | [Cache](bottlenecks/cache.md) |
 | Varredura de vulnerabilidades | Leonardo | Trivy bloqueia CVE CRITICAL corrigível; imagem final com 0 HIGH/CRITICAL; OWASP ZAP no gateway | [Varredura](bottlenecks/vulnerability-scanning.md) |
 | Cache da cotação | Gabriel | p95 da cotação de **49 ms → 4 ms** (−92 %) | [Cache da cotação](bottlenecks/exchange-cache.md) |
-| Observabilidade | Gabriel | Grafana explicou o teste de carga: CPU em 83–85 % e os 0,57 % de erro (`BindException` no Auth) | [Observabilidade](bottlenecks/observability.md) |
+| Observabilidade | Gabriel | Grafana explicou o teste de carga: os 0,57 % de erro (`BindException` no Auth) e, com o HPA, as réplicas novas recebendo carga só ≈ 1,5 min depois de prontas | [Observabilidade](bottlenecks/observability.md) |
 | Mensageria (Kafka) | Nicolas | Cadastro em ~15 ms com o consumidor **ou** o Kafka fora; 0 eventos perdidos, 0 e-mails duplicados | [Mensageria](bottlenecks/messaging.md) |
 
 ### Falas do Gabriel (proposta, ≈ 35 s no total)
@@ -37,8 +37,10 @@ por 30 segundos, o p95 caiu de 49 para 4 milissegundos, e cada réplica chama a 
 duas vezes por minuto para cada par de moedas, não importa a carga."
 
 **Observabilidade (≈ 10 s, tela: Grafana durante o teste com HPA).**
-"Prometheus e Grafana mostram cada réplica separada. Foi assim que explicamos o teste de carga: o cache
-do token poupou 99,7 % das chamadas ao Auth, e os erros sob saturação vinham do Auth sem pool de conexões."
+"Prometheus e Grafana mostram cada réplica separada. No teste com HPA, o gateway foi de 2 para 6
+réplicas em um minuto, sem nenhum erro, e o painel por réplica mostrou o que o k6 não mostra: as réplicas
+novas só recebem a parte delas da carga ≈ 1 minuto e meio depois, porque o Kubernetes balanceia conexões,
+não requisições."
 
 **Custos e conclusão (≈ 15 s, tela: tabela de custos).**
 "Tudo isso custa uns 29 centavos de dólar por hora no EKS, por isso o cluster só fica ligado para testar.
