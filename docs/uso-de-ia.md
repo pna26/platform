@@ -26,11 +26,12 @@ abaixo.
 | Nginx (balanceamento) | Sim — a partir do hands-on 7 | Acrescentado `resolve` (escala sem reload) e bloqueio do actuator. |
 | Pipeline de CI/CD reutilizável | Sim | Passos de Trivy simulados localmente antes de publicar. |
 | Varredura de vulnerabilidades | Sim | As correções do Dockerfile e do manifesto k8s vieram dos próprios achados do Trivy. |
-| `compose.yaml`, scripts e manifestos k8s do `platform` | Sim | Manifestos validados com Trivy e `nginx -t`; **ainda não testados num cluster** (o EKS não estava pronto). |
+| `compose.yaml`, scripts e manifestos k8s do `platform` | Sim | Manifestos validados com Trivy e `nginx -t`. Em 12/11 rodaram num cluster kind igual ao `eks-store` (ensaio do Gabriel, ver [Testes de carga](devops/load-testing.md#ensaio-local-kind)); **no EKS real ainda não**. |
 | Esta documentação (estrutura e textos das minhas partes) | Sim | Baseada no template do professor. |
 | Medições (balanceamento, cache) | Executadas pela IA na minha máquina | Os números são os que saíram dos comandos mostrados nas páginas. |
 | AWS no pipeline via OIDC (`service.yaml`, `infra.yaml`, [CI/CD](devops/ci-cd.md)) | Sim — a partir da proposta do Nicolas (role `github-actions-pna26`) | Validado com `actionlint`. Na revisão com a IA apareceram três pontos que não estavam no plano: a ordem do merge (o workflow reutilizável não pode pedir mais permissão que quem o chama), os repositórios `account`, `auth` e `notification-service` também precisarem de `id-token: write`, e a `AmazonEKSEditPolicy` não deixar o `infra` criar o `Role`/`RoleBinding` do Prometheus. |
 | Revisão dos PRs do Nicolas (EKS e mensageria) | Sim — leitura dos diffs com a IA | A decisão de mergear e os comentários de revisão são meus. |
+| Revisão do teste com HPA do Gabriel (#9) e ajustes (#10) | Sim | A IA buildou a doc, conferiu o painel novo contra o Prometheus do k8s e achou que o `kubectl autoscale --cpu=50%` não existe antes do kubectl 1.34 (o meu era 1.33). O `keepalive_time 10s` no `lb` veio do achado do Gabriel; validado com `nginx -t` na imagem do manifesto. |
 | HTTPS na [Arquitetura](arquitetura.md), status da Home e rascunho da [Apresentação](apresentacao.md) | Sim | Montados a partir do código (cookie do Auth), do enunciado do curso e do estado dos repositórios. |
 
 **O que eu (Leonardo) fiz sem IA:**
