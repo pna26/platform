@@ -231,8 +231,9 @@ pip install playwright imageio-ffmpeg pillow    # uma vez; usa o Edge instalado
 python scripts/hpa-record.py --base-url http://$ELB --name eks-hpa --label "EKS (eks-store)"
 ```
 
-**O que esperar** (visto no [ensaio local](#ensaio-local-kind)): as réplicas novas levam ≈ 1,5 min para
-receber a parte delas da carga ([por quê](#achado-balanceamento)), e na redução os pods removidos
+**O que esperar** (visto no [ensaio local](#ensaio-local-kind)): as réplicas novas levaram ≈ 1,5 min
+para receber a parte delas da carga ([por quê](#achado-balanceamento)); com o `keepalive_time 10s`
+aplicado depois no `lb`, devem levar ≈ 35–40 s. Na redução, os pods removidos
 aparecem como `Error` no terminal 2. Esse `Error` é o código de saída **143** (128 + SIGTERM) que a JVM
 devolve quando o Kubernetes manda o pod parar, conferido no `state.terminated.exitCode` do pod: não é falha.
 
@@ -331,7 +332,8 @@ uma antiga, o que por padrão acontece depois de **1000 requisições** na mesma
 e leva ≈ 1 min para chegar a 1000. No compose não acontece porque lá o Nginx enxerga cada réplica pelo DNS do Docker e
 divide as requisições ele mesmo.
 
-**Correções possíveis (`k8s/lb.yaml`, Leonardo):**
+**Correções possíveis (`k8s/lb.yaml`, Leonardo):** a 1 foi **aplicada** depois do ensaio, então o
+teste no EKS já roda com ela.
 
 1. **Uma linha** no `upstream gateways`: `keepalive_time 10s;` (Nginx ≥ 1.21.3). Cada conexão dura no
    máximo 10 s, então as réplicas novas entram na divisão bem mais cedo. Testado no ensaio, em duas
