@@ -156,6 +156,33 @@ com a política `AmazonEKSAdminPolicy` no namespace `store`: a `AmazonEKSEditPol
     Sem `AWS_ROLE_ARN`, o pipeline continua fazendo build, testes, varredura e publica as imagens no
     **GHCR**. O EKS consegue puxar do GHCR desde que os pacotes estejam públicos.
 
+## Evidência
+
+Runs na `main` depois do OIDC (10/11 em diante). Em todos, o job entrou na AWS sem nenhuma chave
+guardada no GitHub (passo *Credenciais da AWS*), fez login no ECR e publicou a imagem no ECR e no GHCR.
+O job *deploy no EKS* aparece como `skipped` porque a variável `EKS_CLUSTER` só é criada com o cluster
+no ar.
+
+| Serviço | Run | Data | Build, testes e Trivy | AWS por OIDC + push no ECR | Deploy no EKS |
+|---|---|---|---|---|---|
+| gateway-service | [43455719598](https://github.com/pna26/gateway-service/actions/runs/43455719598){target="_blank"} | 13/11 | :material-check: | :material-check: `gateway-service:sha-0bb8f83` | aguarda o cluster |
+| account-service | [42867888940](https://github.com/pna26/account-service/actions/runs/42867888940){target="_blank"} | 10/11 | :material-check: | :material-check: | aguarda o cluster |
+| auth-service | [42867899239](https://github.com/pna26/auth-service/actions/runs/42867899239){target="_blank"} | 10/11 | :material-check: | :material-check: | aguarda o cluster |
+| notification-service | [42867914768](https://github.com/pna26/notification-service/actions/runs/42867914768){target="_blank"} | 10/11 | :material-check: | :material-check: | aguarda o cluster |
+| exchange-service | [42675957434](https://github.com/pna26/exchange-service/actions/runs/42675957434){target="_blank"} | 09/11 | :material-check: | antes do OIDC: só GHCR (vai ao ECR no próximo push) | aguarda o cluster |
+
+Trecho do log do gateway (passo *Build e push*):
+
+``` text
+pushing manifest for 637423273088.dkr.ecr.us-east-2.amazonaws.com/gateway-service:sha-0bb8f83@sha256:55a869db80fc... done
+```
+
+!!! warning "A completar no dia do EKS"
+
+    Com o cluster no ar e `EKS_CLUSTER=eks-store` na org, um push na `main` de cada serviço (ou
+    *Run workflow* no Actions) faz o deploy. Colocar aqui o link do run com o job *deploy no EKS* verde,
+    o run do `infra` e a saída de `kubectl get pods -n store`.
+
 ## Outros workflows do `platform`
 
 | Workflow | Gatilho | O que faz |

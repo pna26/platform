@@ -65,8 +65,8 @@ Detalhes em [Arquitetura](arquitetura.md).
 | [Bottlenecks](bottlenecks/index.md) | 20% | todos | 6 implementados e verificados no compose/CI; falta a verificação no EKS |
 | [AWS](devops/aws.md) | 5% | Nicolas | :material-check: pronto (CI entra na AWS por OIDC desde 10/11) |
 | [EKS](devops/eks.md) | 10% | Nicolas | cluster testado em 08/11 (deploy manual + smoke test); falta o deploy pelo CI |
-| [CI/CD (GitHub Actions)](devops/ci-cd.md) | 10% | Leonardo | pipeline pronto em todos os repositórios; deploy no EKS via OIDC aguarda o cluster |
-| [Testes de carga](devops/load-testing.md) | 15% | Gabriel | feito no compose; falta a rodada no EKS com HPA |
+| [CI/CD (GitHub Actions)](devops/ci-cd.md) | 10% | Leonardo | pipeline pronto em todos os repositórios; entrada na AWS por OIDC e push no ECR comprovados ([evidência](devops/ci-cd.md#evidencia)); o deploy no EKS aguarda o cluster |
+| [Testes de carga](devops/load-testing.md) | 15% | Gabriel | feito no compose e ensaiado com HPA num cluster kind (12/11); falta a rodada no EKS |
 | [PaaS, custos e SLA](devops/custos-sla.md) | 10% | Gabriel | :material-check: pronto |
 | Documentação (MkDocs) | 10% | todos | em andamento |
 
