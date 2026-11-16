@@ -62,114 +62,60 @@ abaixo.
 
 ## Nicolas
 
-!!! quote "Em uma frase"
-
-    Usei a IA como **consultora e estruturadora**: para saber qual era o jeito certo de fazer cada parte
-    e para montar o código. **Revisei cada passo e só segui adiante quando entendia o que tinha sido
-    feito e por quê.**
-
 **Ferramenta:** Claude Code (modelo Claude Opus 5.5, Anthropic), no terminal e no app desktop, com acesso
 ao clone local do `platform`, ao GitHub da organização e, nas etapas da AWS, ao AWS CLI logado por SSO.
 
-### Como eu trabalhei com a IA
+**Como foi usado:** usei a IA para **consultar o que deveria ser feito corretamente** e para **estruturar o
+código**. Antes de cada tarefa, ela lia o material do curso (Hands-on 1, 3 e 7 e as páginas de EKS e de
+bottlenecks) e explicava o que o professor espera e qual é a forma certa de fazer. Depois montava a
+estrutura (classes, migrations, manifestos, comandos) seguindo os padrões do curso e dos repositórios do
+grupo. **Eu revisava o que a IA fazia, entendendo cada passo**: lia cada mudança, pedia a explicação do que
+não estava claro e só seguia adiante quando entendia o que tinha sido feito e por quê.
 
-<div class="grid cards" markdown>
-
--   :material-book-search:{ .lg .middle } **Consultar o que é o certo**
-
-    ---
-
-    Antes de cada tarefa, pedia para a IA ler o material do curso (Hands-on 1, 3 e 7, as páginas de EKS
-    e de bottlenecks) e me dizer **o que o professor espera** e qual é a forma correta de fazer, antes de
-    escrever qualquer linha.
-
--   :material-sitemap:{ .lg .middle } **Estruturar o código**
-
-    ---
-
-    A IA montava a estrutura (classes, migrations, manifestos, comandos) seguindo os padrões do curso e
-    dos repositórios do grupo. Eu definia o que entrava e o que ficava de fora.
-
--   :material-account-eye:{ .lg .middle } **Revisar entendendo cada passo**
-
-    ---
-
-    Lia cada mudança e pedia a explicação do que não estava claro: o que o comando faz, por que essa
-    configuração, o que acontece se der errado. Na AWS, **eu mesmo** rodava os comandos e fazia os
-    cliques no console, e a IA explicava e conferia o resultado.
-
--   :material-shield-lock:{ .lg .middle } **Regras que eu impus**
-
-    ---
-
-    Nenhum segredo no Git, na tela ou em logs. Commits sem coautoria da IA. Mudanças no repositório de
-    outro integrante só por PR, para o dono revisar. Ambiente da AWS apagado quando não está em uso.
-
-</div>
-
-### O que foi feito, parte por parte
-
-| Parte | Papel da IA | O que eu revisei e decidi |
+| Parte | Feito com IA? | Observações |
 |---|---|---|
-| [Account](servicos/account.md) (`account` + `account-service`) | Consultou o Hands-on 1, estruturou Resource, Service, Parser, Model, Repository, Flyway e Dockerfile | A rota de login no Account (`POST /accounts/login`, vinda do Hands-on 3) e o banco PostgreSQL com schema próprio. Testei todas as rotas no compose. |
-| [Auth](servicos/auth.md) (`auth` + `auth-service`) | Estruturou o `JwtService` (JJWT) e o `AuthService`, que chama o Account via Feign | O cookie `HttpOnly`/`Secure`/`SameSite=None` e a chave do JWT só por variável de ambiente. Testei register, login, token adulterado (401), `me` e logout. |
-| [AWS](devops/aws.md) | Explicou cada serviço e cada comando antes de eu executar: budget, região, SSO no CLI, ECR e a role OIDC do GitHub Actions | A região `us-east-2`, o alerta de custo de US$ 20/mês e a role sem chave fixa (OIDC). Executei os passos e conferi cada resultado com a IA. |
-| [EKS](devops/eks.md) | Estruturou os manifestos, o `setup/eks-store.yaml`, o RDS e a ordem de criar e apagar o ambiente | Nós só em sub-redes privadas, RDS sem acesso público e liberado só para os nós, Secrets fora do Git, e apagar tudo depois de usar por causa do custo. |
-| [Mensageria](bottlenecks/messaging.md) (Kafka) | Adaptou o Hands-on 7 (transactional outbox, consumidor idempotente, DLT) e criou o `notification-service` e o `scripts/messaging-test.sh` | Detalhado logo abaixo. |
-| Autorização (RBAC) | Achou a falha lendo o gateway e o account (qualquer usuário logado listava, via e apagava contas alheias) e estruturou o papel no Account, o claim `role` no JWT e as regras no gateway | O desenho de dois papéis, conta nova sempre `USER`, `ADMIN` só pelo banco, e a mudança no gateway do Leonardo só por PR. Testado no compose com duas contas e no CI. |
+| [Account](servicos/account.md) (`account` + `account-service`) | Sim — estrutura a partir do Hands-on 1 | Resource, Service, Parser, Model, Repository, Flyway e Dockerfile. A rota de login no Account (`POST /accounts/login`) veio do Hands-on 3. Todas as rotas testadas no compose. |
+| [Auth](servicos/auth.md) (`auth` + `auth-service`) | Sim — estrutura a partir do Hands-on 3 | `JwtService` (JJWT) e `AuthService` chamando o Account via Feign. Testados register, login, token adulterado (401), `me` e logout. |
+| [AWS](devops/aws.md) | Sim — explicação de cada passo; **os comandos e os cliques no console fui eu que fiz** | Budget, região, SSO no AWS CLI, ECR e a role OIDC do GitHub Actions. A IA explicava antes e conferia o resultado depois. |
+| [EKS](devops/eks.md) | Sim — manifestos, `setup/eks-store.yaml`, RDS e a ordem de criar e apagar | Primeiro deploy à mão em 08/11. Em 16/11 a IA subiu o ambiente com a minha autorização, o deploy pelo CI funcionou nos meus três serviços e tudo foi apagado depois. |
+| [Mensageria](bottlenecks/messaging.md) (Kafka) | Sim — código, compose, manifestos k8s, script de teste e a página | Adaptado do Hands-on 7 (transactional outbox, consumidor idempotente, DLT), trocando pedidos por contas. `scripts/messaging-test.sh` passando no compose; no EKS, o evento chegou ao `notification-service` em 16/11. |
+| `notification-service` (repositório novo) | Sim | Consumidor Spring Kafka no padrão do Hands-on 7 e dos repositórios do grupo (Dockerfile, CI, k8s). |
+| Autorização (RBAC) | Sim — a IA achou a falha lendo o gateway e o account, e estruturou a solução | Qualquer usuário logado listava, via e apagava contas alheias. Papel `USER`/`ADMIN` no Account, claim `role` no JWT e regras no gateway. Testado no compose com duas contas e no CI (13 testes novos). A mudança no gateway do Leonardo foi por PR. |
 
-### O que eu decidi na mensageria
+**O que eu (Nicolas) fiz sem IA:**
 
-- **O caso de uso:** e-mail de boas-vindas quando uma conta é criada.
-- **Um serviço separado** (`notification-service`), em vez de colocar o consumidor dentro do `account`:
-  é desacoplamento de verdade, porque são dois processos e um pode cair sem derrubar o outro.
-- **Seguir o material do professor** (Hands-on 7, Kafka) em vez do RabbitMQ do plano inicial.
+- **AWS na mão:** rodei os comandos e fiz os cliques no console (budget, SSO, ECR, role do CI), conferindo
+  cada resultado com a IA.
+- **Decisões de projeto:** região `us-east-2` e alerta de custo de US$ 20/mês; RDS PostgreSQL para o banco
+  no EKS; nós só em sub-redes privadas e RDS sem acesso público; apagar o ambiente sempre que não está em
+  uso; na mensageria, o e-mail de boas-vindas como caso de uso, o consumidor num **serviço separado** e
+  seguir o material do professor (Kafka) em vez do RabbitMQ do plano inicial; no RBAC, conta nova sempre
+  `USER` e `ADMIN` só pelo banco.
+- **Revisão:** li e entendi cada mudança antes de ir para o GitHub, e testei no compose e no cluster.
+- **Regras para a IA:** nenhum segredo no Git, na tela ou em logs; commits sem coautoria da IA; mudanças
+  no repositório de outro integrante só por PR, para o dono revisar. Aprovei cada ação externa.
 
-### Onde a IA errou e como foi corrigido
+**Onde a IA errou e foi corrigido:**
 
-??? failure "AWS e EKS"
-
-    - **OIDC recusado no primeiro CI** (`Not authorized to perform sts:AssumeRoleWithWebIdentity`). A trust
-      policy esperava `repo:pna26/*`, mas os repositórios usam o *subject* imutável do GitHub
-      (`repo:pna26@<id>/...`). A trust policy foi corrigida e o caso está registrado em [AWS](devops/aws.md).
-    - **Nomes do ECR:** os primeiros repositórios (`gateway`, `auth`...) não batiam com os nomes que o
-      pipeline usa (`*-service`). Foram recriados com o nome certo e os antigos, vazios, apagados.
-    - **`docker login` no ECR falhava no Windows:** o token passa do tamanho que o Gerenciador de
-      Credenciais aceita. A solução foi usar o `docker-credential-ecr-login`.
-    - **Permissão do CI no cluster, em duas etapas:** a `AmazonEKSEditPolicy` não deixava criar o `Role`
-      do Prometheus. Trocada pela `AmazonEKSAdminPolicy`, o Kubernetes ainda barrou, porque a checagem
-      contra escalada de privilégio não enxerga a política da AWS. A correção foi um `RoleBinding` para o
-      papel `admin`, com o mesmo escopo (só o namespace `store`). Com ela, o primeiro deploy automático pelo
-      CI funcionou em 16/11.
-
-??? failure "Auth e Account"
-
-    - **Chave reserva do JWT no `application.yaml`:** a primeira versão tinha um valor padrão para a
-      chave. Ele saiu na revisão de segurança, e agora o Auth nem sobe sem `JWT_SECRET_KEY`.
-    - **E-mail duplicado devolve 500**, e não 409. É o comportamento do material do curso. Ficou
-      registrado como limitação conhecida, sem mudar o contrato.
-
-??? failure "Mensageria"
-
-    - Usou `saveAndFlush`, que não existe no `CrudRepository` do account. O build pegou e virou `save`
-      (a transação continua garantindo que conta e evento entram juntos).
-    - O script de teste falhou no Git Bash do Windows: o caminho `/opt/kafka/...` era convertido para
-      `C:/Program Files/Git/opt/...`. Corrigido com `MSYS_NO_PATHCONV=1`.
-    - No começo não conseguiu testar os manifestos num Kubernetes e rodou os containers com as mesmas
-      restrições para provar que subiam. O teste no EKS veio depois: deploy pelo CI e evento chegando ao
-      `notification-service` em 16/11.
-
-??? failure "RBAC"
-
-    - A primeira versão do teste do `JwtService` não compilava (escape inválido numa expressão regular).
-      O build pegou e foi corrigido antes do commit.
-    - O `smoke-test.sh` esperava que qualquer usuário conseguisse `GET /accounts` (200). Com o RBAC isso
-      passou a ser 403, e o script foi atualizado com as novas checagens.
-
-!!! success "Compromisso para a arguição"
-
-    Cada parte desta tabela eu sei explicar: o que faz, por que foi feita assim e o que eu mudaria em
-    produção (as limitações estão no fim de cada página).
+- **OIDC recusado no primeiro CI** (`Not authorized to perform sts:AssumeRoleWithWebIdentity`): a trust
+  policy esperava `repo:pna26/*`, mas os repositórios usam o *subject* imutável do GitHub
+  (`repo:pna26@<id>/...`). Corrigido e registrado em [AWS](devops/aws.md).
+- **Nomes do ECR:** os primeiros repositórios (`gateway`, `auth`...) não batiam com os nomes que o pipeline
+  usa (`*-service`). Foram recriados com o nome certo e os antigos, vazios, apagados.
+- **`docker login` no ECR falhava no Windows:** o token passa do tamanho que o Gerenciador de Credenciais
+  aceita. Resolvido com o `docker-credential-ecr-login`.
+- **Permissão do CI no cluster:** a `AmazonEKSEditPolicy` não deixava criar o `Role` do Prometheus, e nem a
+  `AmazonEKSAdminPolicy` resolveu, porque a checagem contra escalada de privilégio do Kubernetes não
+  enxerga a política da AWS. A correção foi um `RoleBinding` para o papel `admin`, só no namespace `store`.
+- **Chave reserva do JWT** no `application.yaml` do Auth: saiu na revisão de segurança, e agora o Auth não
+  sobe sem `JWT_SECRET_KEY`.
+- Usou `saveAndFlush`, que não existe no `CrudRepository` do account: o build pegou e virou `save` (a
+  transação continua garantindo que conta e evento entram juntos).
+- O script de mensageria falhou no Git Bash do Windows: `/opt/kafka/...` virava
+  `C:/Program Files/Git/opt/...`. Corrigido com `MSYS_NO_PATHCONV=1`.
+- O `smoke-test.sh` esperava que qualquer usuário conseguisse `GET /accounts` (200); com o RBAC passou a
+  ser 403, e o script ganhou as novas checagens. O primeiro teste do `JwtService` não compilava (escape
+  inválido numa expressão regular), e o build pegou antes do commit.
 
 ## Gabriel
 
