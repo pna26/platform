@@ -73,6 +73,7 @@ do `platform` e ao GitHub da organização.
 | Bottleneck: mensageria (Kafka) | Sim — código, compose, manifestos k8s, script de teste e esta página | Adaptado do Hands-on 7 do curso (outbox, consumidor idempotente, DLT), trocando pedidos por contas. Testado no compose local com `scripts/messaging-test.sh` (5 experimentos, todos passando). Os manifestos k8s foram testados só como containers com as mesmas restrições; **no EKS ainda não** (cluster apagado). |
 | `notification-service` (repositório novo) | Sim | Consumidor Spring Kafka copiado do padrão do Hands-on 7 e dos repositórios do grupo (Dockerfile, CI, k8s). |
 | Outbox no `account-service` | Sim | Tabela `accounts.outbox` (Flyway), `Outbox`, `OutboxRelay` e o `@Transactional` no `create`. |
+| Bottleneck: autorização (RBAC) | Sim — código no account, account-service, auth-service e gateway-service, testes, `smoke-test.sh` e a [página](bottlenecks/rbac.md) | A IA achou a falha (qualquer usuário listava e apagava contas alheias) lendo o gateway e o account, propôs as regras e implementou. Testado no compose com duas contas e no CI (13 testes novos). A mudança no gateway (do Leonardo) entrou por PR revisado por ele. |
 
 **O que eu (Nicolas) decidi na mensageria:**
 
