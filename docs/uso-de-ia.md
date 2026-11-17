@@ -80,7 +80,7 @@ não estava claro e só seguia adiante quando entendia o que tinha sido feito e 
 | [EKS](devops/eks.md) | Sim — manifestos, `setup/eks-store.yaml`, RDS e a ordem de criar e apagar | Primeiro deploy à mão em 08/11. Em 16/11 a IA subiu o ambiente com a minha autorização, o deploy pelo CI funcionou nos meus três serviços e tudo foi apagado depois. |
 | [Mensageria](bottlenecks/messaging.md) (Kafka) | Sim — código, compose, manifestos k8s, script de teste e a página | Adaptado do Hands-on 7 (transactional outbox, consumidor idempotente, DLT), trocando pedidos por contas. `scripts/messaging-test.sh` passando no compose; no EKS, o evento chegou ao `notification-service` em 16/11. |
 | `notification-service` (repositório novo) | Sim | Consumidor Spring Kafka no padrão do Hands-on 7 e dos repositórios do grupo (Dockerfile, CI, k8s). |
-| Autorização (RBAC) | Sim — a IA achou a falha lendo o gateway e o account, e estruturou a solução | Qualquer usuário logado listava, via e apagava contas alheias. Papel `USER`/`ADMIN` no Account, claim `role` no JWT e regras no gateway. Testado no compose com duas contas e no CI (13 testes novos). A mudança no gateway do Leonardo foi por PR. |
+| [Autorização (RBAC)](bottlenecks/rbac.md) | Sim — a IA achou a falha lendo o gateway e o account, e estruturou a solução | Qualquer usuário logado listava, via e apagava contas alheias. Papel `USER`/`ADMIN` no Account, claim `role` no JWT e regras no gateway. Testado no compose com duas contas e no CI (13 testes novos). A mudança no gateway do Leonardo foi por PR. |
 
 **O que eu (Nicolas) fiz sem IA:**
 
