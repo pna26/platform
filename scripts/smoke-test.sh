@@ -55,10 +55,15 @@ echo "$me" | grep -q "$EMAIL" || fail "GET /auth/me: $me"
 ok "GET /auth/me devolve a conta logada"
 
 ID=$(echo "$me" | sed -n 's/.*"id":"\([^"]*\)".*/\1/p')
-[ "$(status -H "$COOKIE" "$BASE_URL/accounts")" = "200" ] || fail "GET /accounts com token"
-ok "GET /accounts com token -> 200"
-[ "$(status -H "$COOKIE" "$BASE_URL/accounts/$ID")" = "200" ] || fail "GET /accounts/{id}"
-ok "GET /accounts/{id} -> 200"
+# RBAC (bottleneck de autorização): conta nova é USER
+[ "$(status -H "$COOKIE" "$BASE_URL/accounts/$ID")" = "200" ] || fail "GET /accounts/{próprio id}"
+ok "GET /accounts/{próprio id} -> 200"
+[ "$(status -H "$COOKIE" "$BASE_URL/accounts")" = "403" ] || fail "USER listou todas as contas"
+ok "RBAC: USER em GET /accounts (listar todos) -> 403"
+[ "$(status -H "$COOKIE" "$BASE_URL/accounts/00000000-0000-0000-0000-000000000000")" = "403" ] || fail "USER viu conta de outro"
+ok "RBAC: USER em GET /accounts/{outro id} -> 403"
+[ "$(status -X DELETE -H "$COOKIE" "$BASE_URL/accounts/$ID")" = "403" ] || fail "USER apagou conta"
+ok "RBAC: USER em DELETE /accounts/{id} -> 403"
 
 [ "$(status "$BASE_URL/exchange/USD/BRL")" = "401" ] || fail "GET /exchange sem token deveria ser 401"
 ok "GET /exchange/USD/BRL sem token -> 401"

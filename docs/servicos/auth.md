@@ -107,7 +107,7 @@ O `Secure` é o motivo de o navegador não guardar o cookie no EKS, que hoje ate
 | Erro do Account no cadastro (ex.: e-mail duplicado, senha curta) chega ao usuário como `500` | tratar a `FeignException` no `create` e repassar o status do Account (`400`, `409`) |
 | `GET /auth/me` com um id que não existe mais (conta apagada, token ainda válido) devolve `500` | repassar o `404` do Account |
 | Logout só apaga o cookie: o token continua válido até o `exp` se alguém tiver uma cópia | lista de tokens revogados (por `jti`) no Redis, consultada pelo gateway |
-| Sem papéis (todo usuário logado pode tudo) | um *claim* de papel no JWT (por exemplo `role: admin`) e a checagem no gateway |
+| ~~Sem papéis (todo usuário logado pode tudo)~~ | feito: claim `role` no JWT e checagem no gateway, ver [Autorização (RBAC)](../bottlenecks/rbac.md) |
 
 ## Código
 
