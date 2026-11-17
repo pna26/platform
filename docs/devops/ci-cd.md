@@ -148,8 +148,9 @@ variables → Actions → Variables), assim nenhum repositório precisa mudar:
 A role confia nos repositórios da org (`repo:pna26@317011053/*`, ver [AWS](aws.md#problemas-encontrados)) e pode: push/pull no ECR (os repositórios
 `gateway-service`, `auth-service`, `account-service` e `exchange-service` já são criados por fora) e
 `eks:DescribeCluster`. Para o `kubectl apply` ela também precisa de uma **access entry** no cluster
-com a política `AmazonEKSAdminPolicy` no namespace `store`: a `AmazonEKSEditPolicy` não deixa criar
-`Role`/`RoleBinding`, que o `infra` aplica para o Prometheus.
+com a política `AmazonEKSAdminPolicy` no namespace `store`, mais um `RoleBinding` para o papel `admin`
+do namespace: sem ele o Kubernetes barra o `Role` do Prometheus que o `infra` aplica (detalhes em
+[EKS](eks.md)).
 
 !!! tip "Sem AWS"
 
@@ -158,18 +159,19 @@ com a política `AmazonEKSAdminPolicy` no namespace `store`: a `AmazonEKSEditPol
 
 ## Evidência
 
-Runs na `main` depois do OIDC (10/11 em diante). Em todos, o job entrou na AWS sem nenhuma chave
-guardada no GitHub (passo *Credenciais da AWS*), fez login no ECR e publicou a imagem no ECR e no GHCR.
-O job *deploy no EKS* aparece como `skipped` porque a variável `EKS_CLUSTER` só é criada com o cluster
-no ar.
+### OIDC e ECR (10–13/11)
 
-| Serviço | Run | Data | Build, testes e Trivy | AWS por OIDC + push no ECR | Deploy no EKS |
-|---|---|---|---|---|---|
-| gateway-service | [43455719598](https://github.com/pna26/gateway-service/actions/runs/43455719598){target="_blank"} | 13/11 | :material-check: | :material-check: `gateway-service:sha-0bb8f83` | aguarda o cluster |
-| account-service | [42867888940](https://github.com/pna26/account-service/actions/runs/42867888940){target="_blank"} | 10/11 | :material-check: | :material-check: | aguarda o cluster |
-| auth-service | [42867899239](https://github.com/pna26/auth-service/actions/runs/42867899239){target="_blank"} | 10/11 | :material-check: | :material-check: | aguarda o cluster |
-| notification-service | [42867914768](https://github.com/pna26/notification-service/actions/runs/42867914768){target="_blank"} | 10/11 | :material-check: | :material-check: | aguarda o cluster |
-| exchange-service | [42675957434](https://github.com/pna26/exchange-service/actions/runs/42675957434){target="_blank"} | 09/11 | :material-check: | antes do OIDC: só GHCR (vai ao ECR no próximo push) | aguarda o cluster |
+Runs na `main` depois do OIDC. Em todos, o job entrou na AWS sem nenhuma chave guardada no GitHub
+(passo *Credenciais da AWS*), fez login no ECR e publicou a imagem no ECR e no GHCR. O job *deploy no
+EKS* aparece como `skipped` porque a variável `EKS_CLUSTER` só existe com o cluster no ar.
+
+| Serviço | Run | Data | Build, testes e Trivy | AWS por OIDC + push no ECR |
+|---|---|---|---|---|
+| gateway-service | [43455719598](https://github.com/pna26/gateway-service/actions/runs/43455719598){target="_blank"} | 13/11 | :material-check: | :material-check: `gateway-service:sha-0bb8f83` |
+| account-service | [42867888940](https://github.com/pna26/account-service/actions/runs/42867888940){target="_blank"} | 10/11 | :material-check: | :material-check: |
+| auth-service | [42867899239](https://github.com/pna26/auth-service/actions/runs/42867899239){target="_blank"} | 10/11 | :material-check: | :material-check: |
+| notification-service | [42867914768](https://github.com/pna26/notification-service/actions/runs/42867914768){target="_blank"} | 10/11 | :material-check: | :material-check: |
+| exchange-service | [42675957434](https://github.com/pna26/exchange-service/actions/runs/42675957434){target="_blank"} | 09/11 | :material-check: | antes do OIDC: só GHCR (vai ao ECR no próximo push) |
 
 Trecho do log do gateway (passo *Build e push*):
 
@@ -177,18 +179,48 @@ Trecho do log do gateway (passo *Build e push*):
 pushing manifest for 637423273088.dkr.ecr.us-east-2.amazonaws.com/gateway-service:sha-0bb8f83@sha256:55a869db80fc... done
 ```
 
-!!! warning "A completar no dia do EKS"
+### Deploy no EKS (16/11)
 
-    Com o cluster no ar e `EKS_CLUSTER=eks-store` na org, um push na `main` de cada serviço (ou
-    *Run workflow* no Actions) faz o deploy. Colocar aqui o link do run com o job *deploy no EKS* verde,
-    o run do `infra` e a saída de `kubectl get pods -n store`.
+Com o `eks-store` no ar e `EKS_CLUSTER=eks-store` na org, o pipeline reutilizável fez o caminho
+inteiro sem nenhum comando manual de deploy: build, testes, Trivy, OIDC, push no ECR, troca da imagem
+`:latest` pela do commit, `kubectl apply` e `rollout status`.
+
+| Workflow | Run | Commit | Build, testes e Trivy | Deploy no EKS |
+|---|---|---|---|---|
+| account-service | [43856117521](https://github.com/pna26/account-service/actions/runs/43856117521){target="_blank"} | `b8d85c0` | :material-check: | :material-check: |
+| auth-service | [43856123470](https://github.com/pna26/auth-service/actions/runs/43856123470){target="_blank"} | `81e9c12` | :material-check: | :material-check: |
+| notification-service | [43856129429](https://github.com/pna26/notification-service/actions/runs/43856129429){target="_blank"} | `b3dc4c6` | :material-check: | :material-check: |
+| `infra` (1ª tentativa) | [43855377825](https://github.com/pna26/platform/actions/runs/43855377825){target="_blank"} | — | — | :material-close: o Kubernetes barrou o `Role` do Prometheus (resolvido com um `RoleBinding`, ver [EKS](eks.md)) |
+| `infra` (2ª tentativa) | [43855531385](https://github.com/pna26/platform/actions/runs/43855531385){target="_blank"} | — | — | :material-close: manifestos aplicados e Redis pronto, mas o `lb` não subiu |
+
+Gateway e exchange não foram publicados nesse dia. O vermelho da 2ª tentativa do `infra` era um
+problema do próprio `lb`:
+
+``` text
+deployment "redis" successfully rolled out
+Waiting for deployment "lb" rollout to finish: 0 of 2 updated replicas are available...
+error: timed out waiting for the condition
+```
+
+O Nginx resolvia o nome `gateway` só na inicialização e, sem o Service `gateway`, caía com *host not
+found*. O `infra` parava no `lb` e nem chegava a conferir Prometheus e Grafana. **Correção:** o
+`k8s/lb.yaml` passou a resolver o gateway em tempo de execução (`resolve`, ver
+[Balanceamento de carga](../bottlenecks/load-balancing.md)): o `lb` fica pronto antes do gateway,
+responde `502` enquanto ele não existe e começa a encaminhar sozinho quando o gateway sobe. Testado em
+contêiner com o mesmo `nginx.conf`: sem gateway, `/lb/health` → `200` e `/` → `502`; o gateway sobe e
+`/` passa a `200` sem reiniciar o Nginx.
+
+!!! warning "Falta"
+
+    O deploy do **gateway** e do **exchange** pelo CI, e o `infra` verde com a correção do `lb`, ficam
+    para a próxima vez que o cluster subir: um *Run workflow* em cada um, com o link do run aqui.
 
 ## Outros workflows do `platform`
 
 | Workflow | Gatilho | O que faz |
 |---|---|---|
 | `integration` | push, PR, toda segunda | Sobe a plataforma inteira com o compose (submódulos), roda o `smoke-test.sh` e o OWASP ZAP |
-| `infra` | mudança em `k8s/` | Aplica no EKS o Nginx (`lb`) e o Redis |
+| `infra` | mudança em `k8s/` | Aplica no EKS o Nginx (`lb`), Redis, Kafka, Mailpit, Prometheus e Grafana |
 | `docs` | push na `main` | Publica esta documentação no GitHub Pages |
 
 ## Pipeline completo
