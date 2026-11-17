@@ -30,10 +30,18 @@ data:
         log_format upstream '$remote_addr "$request" $status -> $upstream_addr ($upstream_response_time s)';
         access_log /dev/stdout upstream;
 
+        # "resolve": o nome é resolvido em tempo de execução, então o Nginx sobe
+        # mesmo antes de o Service gateway existir (responde 502 até ele
+        # aparecer) em vez de cair com "host not found" e travar o infra.
+        # O resolver do Nginx não usa os domínios de busca: nome completo,
+        # com o namespace (store).
+        resolver kube-dns.kube-system.svc.cluster.local valid=10s ipv6=off;
+
         # no k8s o Service "gateway" já é um IP virtual que distribui entre
         # os pods; o Nginx mantém conexões abertas com ele (keepalive)
         upstream gateways {
-            server gateway:8080;
+            zone gateways 64k;
+            server gateway.store.svc.cluster.local:8080 resolve;
             keepalive 32;
             # o Service balanceia conexões, não requisições: sem limite, cada
             # conexão fica no mesmo pod por 1000 requisições e as réplicas que o
