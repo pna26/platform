@@ -70,6 +70,7 @@ exemplo dentro de `k8s/` sobrescreveria o real. Os Secrets são criados uma vez 
 |---|---|---|
 | `account-secrets` | `DATABASE_USERNAME`, `DATABASE_PASSWORD` | account (`secretRef`) |
 | `auth-secrets` | `JWT_SECRET_KEY` | auth (`secretRef`) |
+| `notification-secrets` | `DATABASE_USERNAME`, `DATABASE_PASSWORD` | notification (`secretRef`), com o mesmo usuário do RDS |
 | `grafana-admin` | `password` | Grafana (criado pelo workflow `infra`) |
 
 O host, a porta e o nome do banco não são segredos e ficam no ConfigMap `account-configmap`
@@ -104,6 +105,13 @@ namespace `store`**: pode criar e atualizar Deployments, Services, ConfigMaps, S
 do Prometheus. Como o acesso é só ao namespace, o `store` é criado à mão (`kubectl create namespace
 store`, no passo 1 abaixo).
 
+A access policy sozinha **também não bastou** (descoberto no deploy de 16/11). Ao criar um `Role`, o
+Kubernetes confere se quem cria já tem todas as permissões que está dando (proteção contra escalada de
+privilégio). Essa conferência olha só o RBAC do próprio Kubernetes, e não enxerga as permissões que vêm
+da access policy da AWS. Por isso a access entry também coloca a role no grupo `store-deployers`, e um
+`RoleBinding` dá a esse grupo o papel `admin` **só no namespace `store`**. O escopo continua o mesmo,
+agora concedido por RBAC nativo.
+
 ``` bash
 aws eks create-access-entry --cluster-name eks-store --region us-east-2 \
   --principal-arn arn:aws:iam::637423273088:role/github-actions-pna26
@@ -111,13 +119,31 @@ aws eks associate-access-policy --cluster-name eks-store --region us-east-2 \
   --principal-arn arn:aws:iam::637423273088:role/github-actions-pna26 \
   --policy-arn arn:aws:eks::aws:cluster-access-policy/AmazonEKSAdminPolicy \
   --access-scope type=namespace,namespaces=store
+# RBAC nativo: sem isto o infra não consegue criar o Role do Prometheus (escalada de privilégio)
+aws eks update-access-entry --cluster-name eks-store --region us-east-2 \
+  --principal-arn arn:aws:iam::637423273088:role/github-actions-pna26 --kubernetes-groups store-deployers
+kubectl create rolebinding ci-store-admin -n store --clusterrole=admin --group=store-deployers
+# conferência: "yes" no store e "no" fora dele
+kubectl auth can-i create roles -n store   --as=ci --as-group=store-deployers
+kubectl auth can-i create roles -n default --as=ci --as-group=store-deployers
 ```
 
-!!! warning "Situação"
+!!! success "Deploy automático comprovado (16/11/2026)"
 
-    O primeiro deploy (08/11/2026) foi feito à mão, com os mesmos passos do pipeline. O `service.yaml`
-    já autentica pela role OIDC (`vars.AWS_ROLE_ARN` + `id-token: write`); o deploy automático liga
-    quando a variável `EKS_CLUSTER=eks-store` é criada na organização, com o cluster no ar.
+    Com o cluster no ar e a variável `EKS_CLUSTER=eks-store` criada na organização, o CI fez sozinho o
+    deploy dos três serviços do Nicolas: build, testes, Trivy, push no ECR, `kubectl apply` e
+    `rollout status`, todos verdes.
+
+    | Workflow | Run | Resultado |
+    |---|---|---|
+    | `infra` (1ª tentativa) | [43855377825](https://github.com/pna26/platform/actions/runs/43855377825){target="_blank"} | falhou: o Kubernetes barrou a criação do `Role` do Prometheus (ver acima) |
+    | `infra` (depois do `RoleBinding`) | [43855531385](https://github.com/pna26/platform/actions/runs/43855531385){target="_blank"} | Redis, Kafka, Mailpit, Prometheus e Grafana no ar; `Role` do Prometheus criado. Só o `lb` não ficou pronto, porque espera o Service `gateway` |
+    | `account-service` | [43856117521](https://github.com/pna26/account-service/actions/runs/43856117521){target="_blank"} | deploy no EKS ✔ |
+    | `auth-service` | [43856123470](https://github.com/pna26/auth-service/actions/runs/43856123470){target="_blank"} | deploy no EKS ✔ |
+    | `notification-service` | [43856129429](https://github.com/pna26/notification-service/actions/runs/43856129429){target="_blank"} | deploy no EKS ✔ |
+
+    Gateway e exchange não foram publicados nesse dia: cada dono roda o CI do seu serviço no dia do teste
+    de carga.
 
 ## Ciclo de vida do ambiente
 
@@ -126,10 +152,11 @@ Todos os comandos rodam a partir da raiz do `platform`, com o AWS CLI logado (`a
 ### Criar (~25 min)
 
 ``` bash
-# 1. cluster, VPC, NAT e nós (~15 min); já configura o kubectl
+# 1. cluster, VPC, NAT e nós (~15 min); já configura o kubectl e instala o metrics-server
 eksctl create cluster -f setup/eks-store.yaml
 kubectl create namespace store
-# 2. access entry do CI (comandos da seção anterior)
+kubectl top nodes   # metrics-server respondendo (o HPA depende dele); leva ~1 min depois do cluster
+# 2. access entry do CI + RoleBinding (comandos da seção anterior)
 
 # 3. rede do RDS: security group (5432 só dos nós) e subnet group (sub-redes privadas)
 VPC=$(aws eks describe-cluster --name eks-store --query cluster.resourcesVpcConfig.vpcId --output text)
@@ -142,18 +169,32 @@ aws ec2 authorize-security-group-ingress --group-id $RDS_SG --protocol tcp --por
 aws rds create-db-subnet-group --db-subnet-group-name rds-store \
   --db-subnet-group-description "Sub-redes privadas do eks-store" --subnet-ids $SUBNETS
 
-# 4. RDS (~10 min) e o Secret com a mesma senha
+# 4. RDS (~10 min) e os Secrets com a mesma senha. A senha fica só num arquivo temporário
+#    (permissão só do dono), nunca na tela nem na linha de comando, e o arquivo é apagado no fim.
+umask 077; T=$(mktemp -d); trap 'rm -rf "$T"' EXIT
 DB_PASS=$(openssl rand -hex 24)
-aws rds create-db-instance --db-instance-identifier rds-store --engine postgres --engine-version 17.11 \
-  --db-instance-class db.t4g.micro --allocated-storage 20 --storage-type gp3 --storage-encrypted \
-  --master-username store --master-user-password "$DB_PASS" --db-name store \
-  --db-subnet-group-name rds-store --vpc-security-group-ids $RDS_SG \
-  --no-publicly-accessible --no-multi-az --backup-retention-period 1 --no-deletion-protection
-kubectl create secret generic account-secrets -n store \
-  --from-literal=DATABASE_USERNAME=store --from-literal=DATABASE_PASSWORD="$DB_PASS"
-kubectl create secret generic auth-secrets -n store --from-literal=JWT_SECRET_KEY="$(openssl rand -base64 32)"
+cat > "$T/rds.json" <<EOF
+{"DBInstanceIdentifier":"rds-store","Engine":"postgres","EngineVersion":"17.11",
+ "DBInstanceClass":"db.t4g.micro","AllocatedStorage":20,"StorageType":"gp3","StorageEncrypted":true,
+ "MasterUsername":"store","MasterUserPassword":"$DB_PASS","DBName":"store",
+ "DBSubnetGroupName":"rds-store","VpcSecurityGroupIds":["$RDS_SG"],
+ "PubliclyAccessible":false,"MultiAZ":false,"BackupRetentionPeriod":1,"DeletionProtection":false}
+EOF
+aws rds create-db-instance --cli-input-json "file://$T/rds.json"
+printf 'DATABASE_USERNAME=store\nDATABASE_PASSWORD=%s\n' "$DB_PASS" > "$T/db.env"
+printf 'JWT_SECRET_KEY=%s\n' "$(openssl rand -base64 32)" > "$T/jwt.env"
+kubectl create secret generic account-secrets      -n store --from-env-file="$T/db.env"
+kubectl create secret generic notification-secrets -n store --from-env-file="$T/db.env"
+kubectl create secret generic auth-secrets         -n store --from-env-file="$T/jwt.env"
+unset DB_PASS
+aws rds wait db-instance-available --db-instance-identifier rds-store
 
-# 5. deploy: rodar o workflow "infra" e o CI de cada serviço (ou kubectl apply à mão)
+# 5. liga o deploy automático e publica tudo pelo CI
+gh variable set EKS_CLUSTER --org pna26 --body eks-store --visibility all   # gh com escopo admin:org
+gh workflow run infra -R pna26/platform --ref main
+for r in gateway-service auth-service account-service exchange-service notification-service; do
+  gh workflow run ci -R pna26/$r --ref main
+done
 ```
 
 ### Testar
@@ -168,6 +209,12 @@ com token inválido e com `id-account` forjado, as duas réplicas do gateway res
 bloqueado no lb. O único aviso foi o câmbio: a AwesomeAPI responde **429** para o IP do NAT da AWS
 (limite da API gratuita para IPs de nuvem), e o exchange devolve 503 como esperado.
 
+Resultado em 16/11/2026, com o deploy feito pelo CI (gateway e exchange não publicados, então sem o
+ELB): pelo `kubectl port-forward` do auth, **register 200, login 200** com o cookie
+`HttpOnly`/`Secure`/`SameSite=None`, **senha errada 401**. O Flyway criou o schema no RDS, o outbox
+publicou o `AccountCreated` no Kafka e o `notification-service` registrou o e-mail de boas-vindas.
+O `kubectl top pods` respondeu (metrics-server ok).
+
 ### Apagar (~15 min)
 
 A ordem importa: o ELB (criado pelo Service `lb`) e o RDS ficam dentro da VPC do eksctl e impedem
@@ -178,9 +225,25 @@ kubectl delete svc lb -n store
 aws rds delete-db-instance --db-instance-identifier rds-store --skip-final-snapshot --delete-automated-backups
 aws rds wait db-instance-deleted --db-instance-identifier rds-store
 aws rds delete-db-subnet-group --db-subnet-group-name rds-store
+RDS_SG=$(aws ec2 describe-security-groups --filters Name=group-name,Values=rds-store \
+  --query 'SecurityGroups[0].GroupId' --output text)
 aws ec2 delete-security-group --group-id $RDS_SG
 eksctl delete cluster -f setup/eks-store.yaml --disable-nodegroup-eviction
+gh variable delete EKS_CLUSTER --org pna26   # senão todo push na main tenta deploy num cluster que não existe
 ```
+
+Conferência de que nada ficou cobrando (todas as linhas devem sair vazias):
+
+``` bash
+aws eks list-clusters; aws rds describe-db-instances --query 'DBInstances[].DBInstanceIdentifier'
+aws elb describe-load-balancers --query 'LoadBalancerDescriptions[].LoadBalancerName'
+aws ec2 describe-nat-gateways --filter Name=state,Values=available,pending --query 'NatGateways[].NatGatewayId'
+aws ec2 describe-addresses --query 'Addresses[].AllocationId'
+aws ec2 describe-volumes --query 'Volumes[].VolumeId'
+```
+
+Em 16/11/2026 o ambiente foi criado, testado e apagado no mesmo dia; a conferência saiu vazia (só as
+imagens do ECR continuam).
 
 ## Custos
 
@@ -205,5 +268,9 @@ por mês).
 |---|---|---|
 | `docker login` no ECR falha no Windows ("O fragmento de código recebeu dados incorretos") | o token do ECR obtido com SSO tem ~3 KB e o Gerenciador de Credenciais do Windows aceita no máximo 2560 bytes | usar o `docker-credential-ecr-login` (vem com o Docker Desktop) em `credHelpers`, sem `docker login` |
 | `denied` ao baixar imagens do GHCR | token do `gh` sem o escopo `read:packages` | `gh auth refresh -h github.com -s read:packages` |
+| workflow `infra` falha: `roles.rbac.authorization.k8s.io "prometheus" is forbidden ... attempting to grant RBAC permissions not currently held` | a checagem anti-escalada do Kubernetes não enxerga as permissões da access policy da AWS (`AmazonEKSAdminPolicy`) | grupo `store-deployers` na access entry + `RoleBinding` `ci-store-admin` para o papel `admin` no `store` (ver [Deploy pelo CI/CD](#deploy-pelo-cicd)) |
+| `lb` em `CrashLoopBackOff`: `host not found in upstream "gateway:8080"` | o Nginx resolve o nome `gateway` ao iniciar, e o Service `gateway` ainda não existe | normal enquanto o gateway não for publicado; o `rollout status` do `infra` dá timeout por isso |
+| `gh variable set --org` devolve 403 | o token do `gh` não tem o escopo `admin:org` | `gh auth refresh -h github.com -s admin:org` (e `--remove-scopes admin:org` depois) |
+| `aws` responde `Token has expired and refresh failed` | a sessão SSO expirou | `aws sso login` |
 | pods do `lb` reiniciam 2 vezes no primeiro deploy | o Nginx resolve `gateway` ao iniciar e subiu antes do Service `gateway` existir | nenhuma: na tentativa seguinte o Service já existe |
 | exchange devolve 503 no EKS | a AwesomeAPI responde 429 para o IP de saída da AWS | comportamento esperado do exchange (cache + 503); afeta o cenário `exchange` do teste de carga |

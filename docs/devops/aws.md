@@ -117,7 +117,7 @@ Em vez disso, a AWS **confia no GitHub** como provedor de identidade (OIDC):
 | Role | `arn:aws:iam::637423273088:role/github-actions-pna26` |
 | Quem pode assumir | tokens com `sub` começando por `repo:pna26@317011053/` (qualquer repositório da org) |
 | O que pode fazer | login no ECR; push/pull **só** nos 5 repositórios acima; `eks:DescribeCluster` |
-| Dentro do cluster | access entry com `AmazonEKSAdminPolicy` **só no namespace `store`** (ver [EKS](eks.md#deploy-pelo-cicd)) |
+| Dentro do cluster | access entry com `AmazonEKSAdminPolicy` + `RoleBinding` para o papel `admin`, **só no namespace `store`** (ver [EKS](eks.md#deploy-pelo-cicd)) |
 
 === "Confiança (quem pode assumir)"
 
