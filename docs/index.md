@@ -64,9 +64,9 @@ Detalhes em [Arquitetura](arquitetura.md).
 | [Exchange](servicos/exchange.md) | 5% | Gabriel | :material-check: pronto |
 | [Bottlenecks](bottlenecks/index.md) | 20% | todos | 7 implementados (2+ por integrante) e verificados no compose/CI; mensageria também no EKS (16/11) |
 | [AWS](devops/aws.md) | 5% | Nicolas | :material-check: pronto (CI entra na AWS por OIDC desde 10/11) |
-| [EKS](devops/eks.md) | 10% | Nicolas | cluster testado em 08/11 (deploy manual + smoke test); deploy automático pelo CI comprovado em 16/11 ([runs](devops/eks.md#deploy-pelo-cicd)); teste de carga com HPA no EKS pelo `scripts/eks-hpa.sh` ([resultado](devops/load-testing.md#resultado-no-eks)) |
+| [EKS](devops/eks.md) | 10% | Nicolas | cluster testado em 08/11 (deploy manual + smoke test); deploy automático pelo CI comprovado em 16/11 ([runs](devops/eks.md#deploy-pelo-cicd)); teste de carga com HPA no EKS em 19/11 ([resultado](devops/load-testing.md#resultado-no-eks)) |
 | [CI/CD (GitHub Actions)](devops/ci-cd.md) | 10% | Leonardo | pipeline pronto em todos os repositórios; OIDC, push no ECR e deploy no EKS comprovados (account, auth e notification em 16/11, [evidência](devops/ci-cd.md#evidencia)); gateway, exchange e o `infra` com o fix do `lb` na próxima subida do cluster |
-| [Testes de carga](devops/load-testing.md) | 15% | Gabriel | feito no compose e ensaiado com HPA num cluster kind (12/11); rodada no EKS automatizada pelo `scripts/eks-hpa.sh`, que preenche o [resultado](devops/load-testing.md#resultado-no-eks) |
+| [Testes de carga](devops/load-testing.md) | 15% | Gabriel | feito no compose, ensaiado num cluster kind (12/11) e no EKS com o HPA escalando de 2 para 6 réplicas (19/11, [resultado](devops/load-testing.md#resultado-no-eks), vídeo e prints) |
 | [PaaS, custos e SLA](devops/custos-sla.md) | 10% | Gabriel | :material-check: pronto |
 | Documentação (MkDocs) | 10% | todos | :material-check: pronto (publicada pelo GitHub Actions, com `mkdocs build --strict`) |
 
