@@ -365,16 +365,54 @@ segunda passou do limite. O Account, com a mesma configuração, estava em 393 M
 
 ### Resultado no EKS
 
-!!! warning "A medir no dia do EKS"
-
-    Preencher com o resumo do k6 (`load/results/eks-hpa.row.md`), o número máximo de réplicas que o HPA
-    criou, quanto tempo levou para escalar, e o link do vídeo. **Não preencher com números estimados.**
+Duas rodadas em 19/11/2026, com o cluster no ar, no cenário `auth` sem pausa, por 4 min, com o k6
+rodando fora da AWS (no Brasil) contra o ELB:
 
 | Execução | VUs | Requisições | req/s | p50 (ms) | p95 (ms) | p99 (ms) | Erros | Réplicas (início → máx.) |
 |---|---:|---:|---:|---:|---:|---:|---:|---|
-| eks-hpa | | | | | | | | 2 → |
+| **eks-hpa** (com HPA, gravada) | 100 | 149.160 | 532,7 | 153 | 254 | 356 | **0,00 %** | **2 → 6** |
+| eks-auth-200 (sem HPA) | 200 | 230.602 | 819,4 | 193 | 370 | 630 | **0,00 %** | 2 (fixo) |
 
-<!-- vídeo do HPA: <iframe width="100%" height="470" src="https://www.youtube.com/embed/<id>" allowfullscreen></iframe> -->
+A `eks-hpa` foi gravada com o `scripts/hpa-record.py` por quem tinha `kubectl` no cluster. A
+`eks-auth-200` rodou só o k6, da máquina do Gabriel, que não tem acesso ao cluster: sem o HPA, o
+gateway ficou nas 2 réplicas do manifesto.
+
+**Linha do tempo da `eks-hpa`** (desde o começo da carga; o resumo do gravador conta ≈ 19 s a mais,
+o tempo que o k6 levou para baixar a imagem):
+
+| Tempo | O que aconteceu |
+|---|---|
+| 0 → 20 s | o k6 sobe de 0 para 100 VUs |
+| +35 s | CPU média do gateway em 118 % do `request` (alvo: 50 %): o HPA pede **4** réplicas |
+| +52 s | 4 réplicas no ar e CPU em 144 %: o HPA pede **6**, o máximo |
+| +91 s | as 6 réplicas prontas, 3 em cada nó; **nenhuma ficou sem espaço** (*Pending*): a conta de capacidade do `--max=6` se confirmou no EKS |
+| +4 min 31 s | o k6 termina: **0 erros** em 149.160 requisições |
+| +10 min | o HPA volta para **2** réplicas, ≈ 5,5 min depois do fim da carga |
+
+<video controls preload="metadata" width="100%" src="../hpa/eks-hpa-8x.mp4"></video>
+
+Vídeo **8× mais rápido** (1 min 22 s para 11 min de teste) no EKS; o relógio no canto mostra o tempo
+real. Os pods novos nascem nos dois nós do `eks-store` (`ip-10-20-…us-east-2.compute.internal`) e, na
+redução, saem como `Error` (o código 143 da JVM, ver acima). A versão em tempo real (19 MB) fica em
+`load/results/eks-hpa/`, fora do git.
+
+Grafana do cluster durante o teste (do começo da carga ao fim do k6):
+
+![Dashboard Store — plataforma no EKS durante o teste com HPA](hpa/eks-hpa-grafana.png)
+
+O que os números mostram:
+
+- **Dentro do SLO nas duas rodadas:** p95 de 254 e 370 ms (< 500 ms), p99 de 356 e 630 ms (< 1,5 s) e
+  **0 erros** em 379.762 requisições. O Auth não caiu.
+- **A latência é quase toda rede.** Com 1 usuário (teste `smoke` antes da `eks-auth-200`), cada
+  requisição já levava ≈ 180 ms: é a ida e volta do Brasil até `us-east-2`. Por isso a vazão no EKS é
+  menor que no ensaio local: o limite é quantas idas e voltas cada usuário consegue fazer, não o
+  servidor. Para medir a capacidade do cluster, o k6 teria que rodar dentro da AWS.
+- **O balanceamento acompanhou as réplicas novas:** no painel "Requisições/s por réplica", as faixas
+  das 4 réplicas criadas pelo HPA aparecem e crescem enquanto o k6 roda. Na `eks-auth-200`, 23 amostras
+  do `/health-check` pelo ELB dividiram 54 % / 46 % entre as 2 réplicas.
+- **O CPU repete o ensaio:** as réplicas novas começam com 60–85 % (a JVM aquecendo) e, quando a carga
+  se divide, todas ficam entre ≈ 15 e 30 %.
 
 ## Código
 

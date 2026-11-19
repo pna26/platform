@@ -101,12 +101,15 @@ que o k6 só mostrava de fora:
 
 ### Durante o teste com HPA
 
-Ensaio local do teste com HPA ([roteiro e resultado](../devops/load-testing.md#ensaio-local-kind)),
-do início do k6 ao fim da carga: o gateway sobe de 2 para 6 réplicas em ≈ 1 min, com 0 % de erros 5xx
-e o cache do token acertando 100 %. A linha *exchange* fica vazia porque o cenário `auth` não chama o
+Grafana do **EKS** durante o teste com HPA de 19/11 ([resultado](../devops/load-testing.md#resultado-no-eks)),
+do começo da carga ao fim do k6: o gateway sobe de 2 para 4 e depois 6 réplicas, com 0 % de erros 5xx e
+o cache do token acertando 100 %. A linha *exchange* fica sem tráfego porque o cenário `auth` não chama o
 câmbio.
 
-![Dashboard Store — plataforma durante o teste com HPA](../devops/hpa/kind-hpa-grafana.png)
+![Dashboard Store — plataforma no EKS durante o teste com HPA](../devops/hpa/eks-hpa-grafana.png)
+
+O mesmo teste ensaiado antes num cluster kind ([ensaio local](../devops/load-testing.md#ensaio-local-kind))
+mostrou o mesmo desenho: 2 → 6 réplicas em ≈ 1 min, 0 % de erros.
 
 Para esse teste o dashboard ganhou o painel **Réplicas no ar ao longo do tempo (HPA)**
 (`sum by (job) (up{job=~"gateway|exchange"})`, em degraus), e o painel "Erros 5xx" passou a mostrar
