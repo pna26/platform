@@ -154,6 +154,12 @@ por todos os pods. Um `EXCHANGE_API_TOKEN` resolve.
 | Latência: p95 das requisições | **< 500 ms** | k6 no [teste de carga](load-testing.md); no servidor, p95 do Exchange pelo histograma |
 | Erros sob a carga esperada | **< 1 %** | `http_req_failed` do k6 |
 
+**Conferido no EKS (19/11/2026):** nos [testes de carga](load-testing.md#resultado-no-eks) pelo ELB,
+**0 erros** em 379.762 requisições: p95 de 254 ms com o HPA escalando o gateway de 2 para 6 réplicas
+(100 usuários) e de 370 ms com 200 usuários e 2 réplicas fixas, em ambos com ≈ 180 ms de rede do
+Brasil até `us-east-2`. Os três SLOs da tabela abaixo foram cumpridos. A disponibilidade de um mês não
+se mede numa rodada de 4 min: ela continua sendo a conta do SLA composto acima.
+
 Por que 99,5 % e não 99,9 %: com o banco single-AZ a própria AWS só garante ≈ 99,4 % no caminho
 completo; prometer mais que isso seria prometer o que a infraestrutura não sustenta. Para subir para
 **99,9 %** o primeiro passo é o RDS Multi-AZ (+ ≈ US$ 14/mês), depois alerta no Grafana quando a taxa
