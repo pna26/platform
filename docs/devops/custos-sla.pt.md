@@ -158,7 +158,7 @@ pública e sem esse bloqueio.
 **Conferido no EKS (19/11/2026):** nos [testes de carga](load-testing.md#resultado-no-eks) pelo ELB,
 **0 erros** em 379.762 requisições: p95 de 254 ms com o HPA escalando o gateway de 2 para 6 réplicas
 (100 usuários) e de 370 ms com 200 usuários e 2 réplicas fixas, em ambos com ≈ 180 ms de rede do
-Brasil até `us-east-2`. Os três SLOs da tabela abaixo foram cumpridos. A disponibilidade de um mês não
+Brasil até `us-east-2`. Os três SLOs da tabela acima foram cumpridos. A disponibilidade de um mês não
 se mede numa rodada de 4 min: ela continua sendo a conta do SLA composto acima.
 
 Por que 99,5 % e não 99,9 %: com o banco single-AZ a própria AWS só garante ≈ 99,4 % no caminho
