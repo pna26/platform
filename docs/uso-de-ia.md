@@ -32,7 +32,8 @@ abaixo.
 | AWS no pipeline via OIDC (`service.yaml`, `infra.yaml`, [CI/CD](devops/ci-cd.md)) | Sim — a partir da proposta do Nicolas (role `github-actions-pna26`) | Validado com `actionlint`. Na revisão com a IA apareceram três pontos que não estavam no plano: a ordem do merge (o workflow reutilizável não pode pedir mais permissão que quem o chama), os repositórios `account`, `auth` e `notification-service` também precisarem de `id-token: write`, e a `AmazonEKSEditPolicy` não deixar o `infra` criar o `Role`/`RoleBinding` do Prometheus. |
 | Revisão dos PRs do Nicolas (EKS e mensageria) | Sim — leitura dos diffs com a IA | A decisão de mergear e os comentários de revisão são meus. |
 | Revisão do teste com HPA do Gabriel (#9) e ajustes (#10) | Sim | A IA buildou a doc, conferiu o painel novo contra o Prometheus do k8s e achou que o `kubectl autoscale --cpu=50%` não existe antes do kubectl 1.34 (o meu era 1.33). O `keepalive_time 10s` no `lb` veio do achado do Gabriel; validado com `nginx -t` na imagem do manifesto. |
-| HTTPS na [Arquitetura](arquitetura.md), status da Home e rascunho da [Apresentação](apresentacao.md) | Sim | Montados a partir do código (cookie do Auth), do enunciado do curso e do estado dos repositórios. |
+| HTTPS na [Arquitetura](arquitetura.md), status da Home e roteiro da [Apresentação](apresentacao.md) | Sim | Montados a partir do código (cookie do Auth), do enunciado do curso e do estado dos repositórios. |
+| Vídeo de apresentação e entrega de 20/11 (roteiro, gravação das páginas com Playwright, montagem com ffmpeg, `scripts/eks-hpa.sh` e `scripts/fill-eks-hpa.py`) | Sim | A IA escreveu os scripts e gravou as cenas da documentação. A demonstração no EKS só usa HTTP pelo ELB, com JWT e senha ocultos na tela. A tabela do EKS só recebe números do resumo do k6 e do HPA: o que não foi medido fica "—". |
 
 **O que eu (Leonardo) fiz sem IA:**
 
@@ -134,7 +135,7 @@ manifestos k8s do gateway, estilo da documentação).
 | Observabilidade (Prometheus + Grafana) | Sim | Configs do compose e do EKS, dashboard em JSON. Verificado no compose local e, em 12/11, no ensaio em kind com os manifestos do EKS; **no EKS real ainda não testado** (o cluster não estava no ar). |
 | Testes de carga (k6) | Scripts sim; **números não** | Os resultados são os que saíram da bateria rodada na minha máquina em 05/11/2026 (`load/results/RESULTS.md`). A IA executou os comandos e escreveu a análise a partir dos números, do Prometheus e dos logs. |
 | PaaS, custos e SLA | Sim — texto e contas | Preços conferidos em 05/11/2026 (EKS, EC2, Fargate, Classic LB, IPv4). |
-| Teste com HPA: vídeo e prints do Grafana | Sim — scripts, execução e análise | Feito em 12/11 num cluster kind igual ao `eks-store` (o EKS não estava acessível), com `scripts/kind-up.sh` e `scripts/hpa-record.py`. A IA rodou o teste, gravou o vídeo (Edge sem janela, sem capturar a minha tela) e escreveu a análise a partir do k6, do Prometheus e dos logs. **É ensaio local, não o EKS:** a tabela do EKS fica para o dia do EKS. |
+| Teste com HPA: vídeo e prints do Grafana | Sim — scripts, execução e análise | Feito em 12/11 num cluster kind igual ao `eks-store` (o EKS não estava acessível), com `scripts/kind-up.sh` e `scripts/hpa-record.py`. A IA rodou o teste, gravou o vídeo (Edge sem janela, sem capturar a minha tela) e escreveu a análise a partir do k6, do Prometheus e dos logs. **É ensaio local, não o EKS:** a tabela do EKS é preenchida pelo `scripts/eks-hpa.sh` na rodada no cluster. |
 
 **O que eu (Gabriel) fiz sem IA:**
 

@@ -210,7 +210,7 @@ responde `502` enquanto ele não existe e começa a encaminhar sozinho quando o 
 contêiner com o mesmo `nginx.conf`: sem gateway, `/lb/health` → `200` e `/` → `502`; o gateway sobe e
 `/` passa a `200` sem reiniciar o Nginx.
 
-!!! warning "Falta"
+!!! info "Na próxima subida do cluster"
 
     O deploy do **gateway** e do **exchange** pelo CI, e o `infra` verde com a correção do `lb`, ficam
     para a próxima vez que o cluster subir: um *Run workflow* em cada um, com o link do run aqui.

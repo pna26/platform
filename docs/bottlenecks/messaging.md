@@ -123,19 +123,23 @@ no outbox, porque o rollback desfaz a conta e o evento juntos.
 
 ## No EKS
 
-Os manifestos ficam prontos para quando o cluster `eks-store` for recriado (ver [EKS](../devops/eks.md)):
+Rodou no `eks-store` em **16/11/2026**, com o deploy feito pelo CI ([evidência](../devops/ci-cd.md#deploy-no-eks-1611)):
 
 - `k8s/kafka.yaml`: Deployment de 1 réplica (KRaft), Service `kafka` (ClusterIP) e o Job `kafka-init`
   que cria os tópicos. O workflow `infra.yaml` aplica a pasta `k8s/` junto com os outros manifestos.
 - `k8s/mailpit.yaml`: SMTP falso; a caixa de entrada só por `kubectl port-forward -n store svc/mailpit 8025:8025`.
-- `api/notification-service/k8s/k8s.yaml`: o consumidor (sem Service: ninguém o chama). O ConfigMap do
-  `account` ganhou `KAFKA_BOOTSTRAP_SERVERS`.
+- `api/notification-service/k8s/k8s.yaml`: o consumidor (sem Service: ninguém o chama), publicado pelo
+  pipeline do `notification-service` ([run](https://github.com/pna26/notification-service/actions/runs/43856129429){target="_blank"}).
+  O ConfigMap do `account` ganhou `KAFKA_BOOTSTRAP_SERVERS`.
 - Secret `notification-secrets` (usuário e senha do RDS) criado à mão, uma vez por cluster, como o
   `account-secrets`. **Nunca** vai para o Git.
 
-Os containers foram testados localmente com as mesmas restrições dos manifestos (usuário sem root,
-`capabilities` removidas, raiz somente leitura no Mailpit e no notification). **Ainda não rodaram no EKS**:
-o cluster está apagado por custo.
+**Resultado (16/11):** um cadastro pelo `kubectl port-forward` do Auth (o gateway ainda não tinha sido
+publicado nesse dia) respondeu `200`; o Flyway criou o schema no RDS, o *relay* publicou o
+`AccountCreated` do outbox no tópico `account-events` e o `notification-service` registrou o envio do
+e-mail de boas-vindas (ver [EKS](../devops/eks.md#testar)). Os containers rodam com as mesmas restrições
+testadas localmente (usuário sem root, `capabilities` removidas, raiz somente leitura no Mailpit e no
+notification). Os experimentos de falha (2 a 5 acima) foram feitos no compose.
 
 !!! warning "Limites conhecidos"
 
