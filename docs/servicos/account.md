@@ -1,62 +1,62 @@
 # Account
 
-!!! info "Responsável: Nicolas · Repositórios: [pna26/account](https://github.com/pna26/account){target='_blank'} (interface) e [pna26/account-service](https://github.com/pna26/account-service){target='_blank'} (implementação)"
+!!! info "Owner: Nicolas · Repositories: [pna26/account](https://github.com/pna26/account){target='_blank'} (interface) and [pna26/account-service](https://github.com/pna26/account-service){target='_blank'} (implementation)"
 
-O Account é o dono do **cadastro de contas** da loja. Ele:
+Account owns the store's **account registry**. It:
 
-1. cria, lista, busca e apaga contas (`/accounts`);
-2. guarda a senha só como **hash** (a senha nunca é salva nem devolvida);
-3. confere e-mail e senha no **login**, a pedido do Auth (`POST /accounts/login`);
-4. registra um evento `AccountCreated` no **outbox**, na mesma transação da conta, para o
-   [notification-service](../bottlenecks/messaging.md) mandar o e-mail de boas-vindas.
+1. creates, lists, fetches and deletes accounts (`/accounts`);
+2. stores the password only as a **hash** (the password is never saved or returned);
+3. checks email and password at **login**, on Auth's request (`POST /accounts/login`);
+4. records an `AccountCreated` event in the **outbox**, in the same transaction as the account, so the
+   [notification-service](../bottlenecks/messaging.md) sends the welcome email.
 
-É um serviço **Spring Boot (Web MVC) + Spring Data JPA** sobre **PostgreSQL**, com o schema criado pelo
-**Flyway**. Segue o hands-on 1 do curso (e a rota de login do hands-on 3).
+It is a **Spring Boot (Web MVC) + Spring Data JPA** service on **PostgreSQL**, with the schema created by
+**Flyway**. It follows hands-on 1 of the course (and the login route from hands-on 3).
 
 ``` mermaid
 flowchart LR
     gw[gateway] -->|"/accounts/**<br/>+ id-account"| acc[account]
-    auth -->|"Feign<br/>POST /accounts e /accounts/login"| acc
-    acc -->|JPA| db[("PostgreSQL<br/>schema accounts")]
+    auth -->|"Feign<br/>POST /accounts and /accounts/login"| acc
+    acc -->|JPA| db[("PostgreSQL<br/>accounts schema")]
     acc -.->|"outbox → Kafka"| k[["account-events"]]
 ```
 
-## Dois repositórios: interface e implementação
+## Two repositories: interface and implementation { #dois-repositorios-interface-e-implementacao }
 
-Como no curso, cada serviço Java tem **dois** repositórios:
+As in the course, each Java service has **two** repositories:
 
-| Repositório | Conteúdo | Quem usa |
+| Repository | Contents | Used by |
 |---|---|---|
-| `account` | `AccountController` (interface com as rotas, anotada com `@FeignClient`) e os DTOs `AccountIn` e `AccountOut` | o `account-service` (implementa) e o `auth-service` (chama) |
-| `account-service` | a implementação: `AccountResource`, `AccountService`, JPA, Flyway, Dockerfile e `k8s/` | vira a imagem `account-service` |
+| `account` | `AccountController` (interface with the routes, annotated with `@FeignClient`) and the DTOs `AccountIn` and `AccountOut` | `account-service` (implements it) and `auth-service` (calls it) |
+| `account-service` | the implementation: `AccountResource`, `AccountService`, JPA, Flyway, Dockerfile and `k8s/` | becomes the `account-service` image |
 
-A interface é publicada como biblioteca Maven (`store:account:1.0.0`). Assim o **contrato fica num
-lugar só**: o `AccountResource` implementa o `AccountController`, e o Auth usa a mesma interface como
-cliente Feign (`http://account:8080`). Se uma rota mudar, os dois lados deixam de compilar até serem
-atualizados.
+The interface is published as a Maven library (`store:account:1.0.0`). This way the **contract lives in
+one place**: `AccountResource` implements `AccountController`, and Auth uses the same interface as a
+Feign client (`http://account:8080`). If a route changes, both sides stop compiling until they are
+updated.
 
-## Rotas
+## Routes { #rotas }
 
-| Método | Rota | Entrada | Saída |
+| Method | Route | Input | Output |
 |---|---|---|---|
 | POST | `/accounts` | `{ name, email, password }` | `201` + `Location: /accounts/{id}` |
 | GET | `/accounts` | — | `[{ id, name, email }]` |
-| GET | `/accounts/{id}` | — | `{ id, name, email }` ou `404` |
+| GET | `/accounts/{id}` | — | `{ id, name, email }` or `404` |
 | DELETE | `/accounts/{id}` | — | `204` |
-| POST | `/accounts/login` | `{ email, password }` | `{ id, name, email }` ou `401` (interno, quem chama é o Auth) |
+| POST | `/accounts/login` | `{ email, password }` | `{ id, name, email }` or `401` (internal, called by Auth) |
 | GET | `/accounts/health-check` | — | `200` |
 
-Pelo gateway, todas as rotas de `/accounts/**` exigem o cookie do token. Para criar conta sem estar
-logado, o caminho é o `POST /auth/register` do [Auth](auth.md), que chama o `POST /accounts`.
+Through the gateway, every `/accounts/**` route requires the token cookie. To create an account without being
+logged in, the path is [Auth](auth.md)'s `POST /auth/register`, which calls `POST /accounts`.
 
-| Status | Quando |
+| Status | When |
 |---|---|
-| `400` | senha vazia ou com menos de 6 caracteres; e-mail vazio |
-| `401` | login com e-mail ou senha errados |
-| `404` | `GET /accounts/{id}` de um id que não existe |
-| `500` | e-mail já cadastrado (ver [Limitações](#limitacoes)) |
+| `400` | empty password or fewer than 6 characters; empty email |
+| `401` | login with wrong email or password |
+| `404` | `GET /accounts/{id}` for an id that does not exist |
+| `500` | email already registered (see [Limitations](#limitacoes)) |
 
-## Fluxo do cadastro
+## Sign-up flow { #fluxo-do-cadastro }
 
 ``` mermaid
 sequenceDiagram
@@ -66,8 +66,8 @@ sequenceDiagram
     participant DB as PostgreSQL
     A->>R: POST /accounts {name, email, password}
     R->>S: create(Account)
-    S->>S: valida senha (≥ 6) e e-mail
-    S->>S: hash = Base64(SHA-256(senha))
+    S->>S: validates password (≥ 6) and email
+    S->>S: hash = Base64(SHA-256(password))
     S->>DB: BEGIN
     S->>DB: INSERT accounts.accounts
     S->>DB: INSERT accounts.outbox (AccountCreated)
@@ -75,36 +75,36 @@ sequenceDiagram
     R-->>A: 201 Location: /accounts/{id}
 ```
 
-O login faz o caminho inverso: calcula o hash da senha recebida e procura uma conta com aquele e-mail
-**e** aquele hash (`findByEmailAndHashPassword`). Se não achar, responde `401` sem dizer se o erro
-foi no e-mail ou na senha.
+Login takes the reverse path: it hashes the received password and looks for an account with that email
+**and** that hash (`findByEmailAndHashPassword`). If none is found, it responds `401` without saying whether the error
+was in the email or the password.
 
-## Decisões
+## Decisions { #decisoes }
 
-| Decisão | Motivo |
+| Decision | Reason |
 |---|---|
-| Camadas `Resource` → `Service` → `Repository`, com `Account` (domínio), `AccountModel` (JPA) e `AccountParser` | Padrão do curso. A entidade JPA não sai do serviço e o DTO de saída (`AccountOut`) não tem campo de senha, então não há como vazar o hash por engano. |
-| Id `UUID` gerado pelo JPA | O id não revela quantas contas existem nem a ordem de cadastro. |
-| `email` com `UNIQUE` no banco | A regra "um e-mail, uma conta" vale mesmo com várias réplicas do account criando ao mesmo tempo. |
-| Schema `accounts` (e não `public`) criado pelo Flyway | Cada serviço tem o seu schema no mesmo PostgreSQL (o notification usa `notification`). As migrações ficam versionadas no repositório e rodam sozinhas no boot, inclusive no RDS. |
-| `404` quando o id não existe | O cliente distingue "conta não existe" de erro do servidor. |
-| `401` no login errado, sem dizer se errou o e-mail ou a senha | Não ajuda quem tenta descobrir quais e-mails estão cadastrados. O Auth repassa como `401`. |
-| Conta e evento na mesma transação (`@Transactional`) | É o [transactional outbox](../bottlenecks/messaging.md) da mensageria: se o INSERT da conta falhar (e-mail duplicado), o evento também é desfeito. |
-| Banco e Kafka por variável de ambiente | O mesmo jar roda no compose (`db`), no Kubernetes local e no EKS (endpoint do RDS no ConfigMap, usuário e senha no Secret `account-secrets`). |
+| `Resource` → `Service` → `Repository` layers, with `Account` (domain), `AccountModel` (JPA) and `AccountParser` | Course pattern. The JPA entity never leaves the service and the output DTO (`AccountOut`) has no password field, so the hash cannot leak by mistake. |
+| `UUID` id generated by JPA | The id reveals neither how many accounts exist nor the sign-up order. |
+| `email` with `UNIQUE` in the database | The "one email, one account" rule holds even with several account replicas creating at the same time. |
+| `accounts` schema (not `public`) created by Flyway | Each service has its own schema in the same PostgreSQL (notification uses `notification`). Migrations are versioned in the repository and run automatically at boot, including on RDS. |
+| `404` when the id does not exist | The client can tell "account does not exist" apart from a server error. |
+| `401` on wrong login, without saying whether the email or the password was wrong | Does not help anyone trying to find out which emails are registered. Auth forwards it as `401`. |
+| Account and event in the same transaction (`@Transactional`) | This is the messaging [transactional outbox](../bottlenecks/messaging.md): if the account INSERT fails (duplicate email), the event is rolled back too. |
+| Database and Kafka via environment variables | The same jar runs in compose (`db`), on local Kubernetes and on EKS (RDS endpoint in the ConfigMap, username and password in the `account-secrets` Secret). |
 
-## Limitações
+## Limitations { #limitacoes }
 
-Comportamentos que vieram do código do curso e ficaram como estão. Fazem parte do que explicaríamos
-numa versão de produção:
+Behaviors that came from the course code and were left as they are. They are part of what we would explain
+for a production version:
 
-| Limitação | Como ficaria em produção |
+| Limitation | How it would look in production |
 |---|---|
-| Hash `SHA-256` sem *salt*: duas contas com a mesma senha têm o mesmo hash | `BCrypt` ou `Argon2` (lentos de propósito e com *salt*), por exemplo o `PasswordEncoder` do Spring Security |
-| E-mail duplicado devolve `500` | tratar a `DataIntegrityViolationException` e devolver `409 Conflict` |
-| Qualquer usuário logado pode listar e apagar qualquer conta (`GET /accounts`, `DELETE /accounts/{id}`) | autorização por papel ou dono do recurso: comparar o `id-account` do gateway com o `{id}` da rota, ou exigir papel de administrador |
-| `POST /accounts/login` também passa pelo gateway (com token) | deixar a rota só na rede interna, como o `/auth/solve` |
+| Unsalted `SHA-256` hash: two accounts with the same password have the same hash | `BCrypt` or `Argon2` (deliberately slow and *salted*), for example Spring Security's `PasswordEncoder` |
+| Duplicate email returns `500` | handle the `DataIntegrityViolationException` and return `409 Conflict` |
+| Any logged-in user can list and delete any account (`GET /accounts`, `DELETE /accounts/{id}`) | authorization by role or resource owner: compare the gateway's `id-account` with the route's `{id}`, or require an admin role |
+| `POST /accounts/login` also goes through the gateway (with token) | keep the route on the internal network only, like `/auth/solve` |
 
-## Código
+## Code { #codigo }
 
 === "AccountController.java (interface)"
 
@@ -130,7 +130,7 @@ numa versão de produção:
     --8<-- "api/account-service/src/main/java/store/account/AccountModel.java"
     ```
 
-=== "Migrações (Flyway)"
+=== "Migrations (Flyway)"
 
     ``` { .sql .copy title="V2026.08.24.001__create_schema.sql" }
     --8<-- "api/account-service/src/main/resources/db/migration/V2026.08.24.001__create_schema.sql"
@@ -158,20 +158,20 @@ numa versão de produção:
     --8<-- "api/account-service/k8s/k8s.yaml"
     ```
 
-## Configuração
+## Configuration { #configuracao }
 
-| Variável | Compose | EKS | Uso |
+| Variable | Compose | EKS | Purpose |
 |---|---|---|---|
-| `DATABASE_HOST` | `db` | endpoint do RDS (ConfigMap) | host do PostgreSQL |
-| `DATABASE_PORT` | `5432` | `5432` | porta |
-| `DATABASE_DB` | `store` | `store` | nome do banco |
-| `DATABASE_USERNAME` / `DATABASE_PASSWORD` | `.env` | Secret `account-secrets` | credenciais do banco |
-| `KAFKA_BOOTSTRAP_SERVERS` | `kafka:9092` | `kafka:9092` | Kafka do outbox |
+| `DATABASE_HOST` | `db` | RDS endpoint (ConfigMap) | PostgreSQL host |
+| `DATABASE_PORT` | `5432` | `5432` | port |
+| `DATABASE_DB` | `store` | `store` | database name |
+| `DATABASE_USERNAME` / `DATABASE_PASSWORD` | `.env` | Secret `account-secrets` | database credentials |
+| `KAFKA_BOOTSTRAP_SERVERS` | `kafka:9092` | `kafka:9092` | outbox Kafka |
 
-## Como testar
+## How to test { #como-testar }
 
-Direto no account, sem o gateway (por exemplo com `kubectl port-forward svc/account 8080` ou expondo
-a porta no compose):
+Directly against account, without the gateway (for example with `kubectl port-forward svc/account 8080` or by exposing
+the port in compose):
 
 ``` bash
 curl -i -X POST localhost:8080/accounts -H "Content-Type: application/json" \
@@ -183,4 +183,4 @@ curl -s -X POST localhost:8080/accounts/login -H "Content-Type: application/json
 # {"id":"<id>","name":"Ana","email":"ana@insper.edu.br"}
 ```
 
-Pela plataforma inteira, o `scripts/smoke-test.sh` cadastra, faz login e chama `/accounts` pelo gateway.
+For the whole platform, `scripts/smoke-test.sh` signs up, logs in and calls `/accounts` through the gateway.

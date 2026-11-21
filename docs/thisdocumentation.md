@@ -1,11 +1,11 @@
-# Esta documentação
+# This documentation
 
-Feita com [MkDocs](https://www.mkdocs.org/){target="_blank"} + [Material for MkDocs](https://squidfunk.github.io/mkdocs-material/){target="_blank"},
-a partir do [template de entrega do professor](https://hsandmann.github.io/documentation.template/){target="_blank"}.
-As páginas incluem o código direto dos submódulos (`--8<-- "api/<serviço>/..."`), então o que aparece
-aqui é sempre o código da versão referenciada pelo repositório principal.
+Built with [MkDocs](https://www.mkdocs.org/){target="_blank"} + [Material for MkDocs](https://squidfunk.github.io/mkdocs-material/){target="_blank"},
+based on the [professor's submission template](https://hsandmann.github.io/documentation.template/){target="_blank"}.
+The pages include code directly from the submodules (`--8<-- "api/<serviço>/..."`), so what appears
+here is always the code of the version referenced by the main repository.
 
-## Rodar localmente
+## Run locally { #rodar-localmente }
 
 === "Linux/macOS"
 
@@ -27,17 +27,17 @@ aqui é sempre o código da versão referenciada pelo repositório principal.
     mkdocs serve -o
     ```
 
-## Publicação
+## Publishing { #publicacao }
 
-O workflow [`docs`](https://github.com/pna26/platform/blob/main/.github/workflows/docs.yaml){target="_blank"}
-roda `mkdocs gh-deploy` a cada push na `main` e publica em
-[pna26.github.io/platform](https://pna26.github.io/platform){target="_blank"}. Em pull requests ele só
-roda `mkdocs build --strict`, para pegar link quebrado ou snippet que não existe antes do merge.
+The [`docs`](https://github.com/pna26/platform/blob/main/.github/workflows/docs.yaml){target="_blank"} workflow
+runs `mkdocs gh-deploy` on every push to `main` and publishes to
+[pna26.github.io/platform](https://pna26.github.io/platform){target="_blank"}. On pull requests it only
+runs `mkdocs build --strict`, to catch broken links or missing snippets before the merge.
 
-## Como editar
+## How to edit { #como-editar }
 
-Cada integrante edita as páginas da sua parte em `docs/` (a navegação fica no `mkdocs.yml`) e abre um PR
-no `pna26/platform`. Para atualizar o código mostrado de um serviço:
+Each member edits the pages for their part in `docs/` (navigation lives in `mkdocs.yml`) and opens a PR
+on `pna26/platform`. To update the code shown for a service:
 
 ``` shell
 git submodule update --remote api/<serviço>

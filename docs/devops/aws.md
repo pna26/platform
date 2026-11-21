@@ -1,60 +1,60 @@
 # AWS
 
-!!! info "Responsável: Nicolas"
+!!! info "Owner: Nicolas"
 
-Esta página cobre a **base da conta AWS**: região, alerta de custo, acesso pela linha de comando,
-os repositórios de imagem (ECR) e a role que o GitHub Actions usa para entrar na AWS **sem chave de
-acesso**. O cluster e o banco ficam em [EKS](eks.md); a rede (VPC, sub-redes, NAT) é criada junto com
-o cluster pelo `eksctl`.
+This page covers the **AWS account foundation**: region, cost alert, command-line access,
+the image repositories (ECR) and the role GitHub Actions uses to sign in to AWS **without an access
+key**. The cluster and the database are covered in [EKS](eks.md); the network (VPC, subnets, NAT) is created together with
+the cluster by `eksctl`.
 
 ``` mermaid
 flowchart LR
     subgraph gh[GitHub · org pna26]
         ci[GitHub Actions<br/>service.yaml]
     end
-    subgraph aws[Conta 637423273088 · us-east-2]
-        oidc[provedor OIDC<br/>token.actions.githubusercontent.com]
-        role[role IAM<br/>github-actions-pna26]
-        ecr[(ECR<br/>5 repositórios)]
+    subgraph aws[Account 637423273088 · us-east-2]
+        oidc[OIDC provider<br/>token.actions.githubusercontent.com]
+        role[IAM role<br/>github-actions-pna26]
+        ecr[(ECR<br/>5 repositories)]
         eks[EKS eks-store]
-        budget[budget pna26-mensal<br/>US$ 20/mês]
+        budget[budget pna26-mensal<br/>US$ 20/month]
     end
-    ci -->|"1. token OIDC assinado pelo GitHub"| oidc
-    oidc -->|"2. confere aud e sub"| role
-    role -->|"3. credenciais temporárias (1 h)"| ci
-    ci -->|"push da imagem"| ecr
+    ci -->|"1. OIDC token signed by GitHub"| oidc
+    oidc -->|"2. checks aud and sub"| role
+    role -->|"3. temporary credentials (1 h)"| ci
+    ci -->|"image push"| ecr
     ci -->|"kubectl apply (access entry)"| eks
     eks -.->|"pull"| ecr
 ```
 
-## Conta e região
+## Account and region { #conta-e-regiao }
 
-| Item | Valor |
+| Item | Value |
 |---|---|
-| Conta | `637423273088` (fornecida pelo curso) |
-| Acesso das pessoas | IAM Identity Center (SSO), papel `AdministratorAccess` |
-| Região de tudo | **`us-east-2` (Ohio)** |
-| Ferramentas | AWS CLI 2, `eksctl`, `kubectl` |
+| Account | `637423273088` (provided by the course) |
+| People's access | IAM Identity Center (SSO), `AdministratorAccess` role |
+| Region for everything | **`us-east-2` (Ohio)** |
+| Tools | AWS CLI 2, `eksctl`, `kubectl` |
 
-**Por que `us-east-2`:** tem todos os serviços que usamos (EKS, RDS, ECR) com os mesmos preços de
-`us-east-1`, e uma região só evita recurso esquecido em outro lugar gerando custo. Toda a configuração
-(cluster, ECR, variável `AWS_REGION` do CI) usa essa região.
+**Why `us-east-2`:** it has every service we use (EKS, RDS, ECR) at the same prices as
+`us-east-1`, and a single region avoids forgotten resources elsewhere generating costs. All configuration
+(cluster, ECR, CI's `AWS_REGION` variable) uses this region.
 
-### Roteiro do curso e o que fizemos
+### Course guide and what we did { #roteiro-do-curso-e-o-que-fizemos }
 
-O [roteiro de AWS do curso](https://insper.github.io/platform/2026.2/exercises/project/aws/){target="_blank"}
-sugere criar um usuário IAM, entrar no console, gerar uma *access key* e configurar o AWS CLI com ela.
-Seguimos os mesmos passos, trocando a chave fixa por **login SSO**:
+The [course's AWS guide](https://insper.github.io/platform/2026.2/exercises/project/aws/){target="_blank"}
+suggests creating an IAM user, signing in to the console, generating an *access key* and configuring the AWS CLI with it.
+We followed the same steps, replacing the long-lived key with **SSO login**:
 
-| Passo do curso | O que fizemos | Por quê |
+| Course step | What we did | Why |
 |---|---|---|
-| 1. Criar usuário | a conta do curso já vem com IAM Identity Center; cada pessoa entra com o seu usuário SSO | não precisou criar usuário IAM |
-| 2. Entrar no console | portal do SSO → conta `637423273088` → papel `AdministratorAccess` | — |
-| 3. Criar *access key* | **não criamos** | uma *access key* vale até alguém revogá-la; se vazar (num commit, num print), dá acesso à conta. O SSO gera credenciais temporárias, que expiram sozinhas |
-| 4. Configurar o AWS CLI | `aws configure sso` (perfil `default`, região `us-east-2`) | o CLI usa as mesmas credenciais temporárias do SSO |
+| 1. Create user | the course account already comes with IAM Identity Center; each person signs in with their own SSO user | no IAM user needed |
+| 2. Sign in to the console | SSO portal → account `637423273088` → `AdministratorAccess` role | — |
+| 3. Create *access key* | **we did not create one** | an *access key* stays valid until someone revokes it; if it leaks (in a commit, in a screenshot), it grants access to the account. SSO issues temporary credentials that expire on their own |
+| 4. Configure the AWS CLI | `aws configure sso` (`default` profile, region `us-east-2`) | the CLI uses the same temporary SSO credentials |
 
-O mesmo princípio vale para o CI: em vez de guardar uma *access key* no GitHub, ele usa a
-[role OIDC](#role-do-github-actions-oidc).
+The same principle applies to CI: instead of storing an *access key* in GitHub, it uses the
+[OIDC role](#role-do-github-actions-oidc).
 
 ``` bash
 aws configure sso          # uma vez: portal do SSO, conta, papel e região us-east-2
@@ -62,85 +62,85 @@ aws sso login              # quando a sessão expira
 aws sts get-caller-identity
 ```
 
-## Alerta de custo
+## Cost alert { #alerta-de-custo }
 
-O primeiro passo, antes de criar qualquer recurso, foi um **budget** no AWS Budgets:
+The first step, before creating any resource, was a **budget** in AWS Budgets:
 
-| Configuração | Valor |
+| Setting | Value |
 |---|---|
-| Nome | `pna26-mensal` |
-| Limite | US$ 20 por mês (custo real) |
-| Alertas por e-mail | 85% e 100% do gasto **real**; 100% do gasto **previsto** para o mês |
+| Name | `pna26-mensal` |
+| Limit | US$ 20 per month (actual cost) |
+| Email alerts | 85% and 100% of **actual** spend; 100% of **forecasted** spend for the month |
 
-O budget **só avisa, não bloqueia**: a AWS continua cobrando depois do limite. Por isso o ambiente do
-EKS é apagado quando não está em uso (ver [custos do EKS](eks.md#custos)). O alerta de previsão é o
-mais útil: ele dispara no começo do mês se o ritmo de gasto for passar do limite, antes de o dinheiro
-ser gasto.
+The budget **only alerts, it does not block**: AWS keeps charging after the limit. That is why the EKS
+environment is deleted when not in use (see [EKS costs](eks.md#custos)). The forecast alert is the
+most useful one: it fires early in the month if the spending pace is going to exceed the limit, before the money
+is spent.
 
-## ECR
+## ECR { #ecr }
 
-Um repositório por imagem, com o mesmo nome que o pipeline usa:
+One repository per image, with the same name the pipeline uses:
 
-| Repositório | Imagem |
+| Repository | Image |
 |---|---|
 | `gateway-service` | gateway (Java) |
 | `auth-service` | auth (Java) |
 | `account-service` | account (Java) |
 | `exchange-service` | exchange (Python) |
-| `notification-service` | consumidor da [mensageria](../bottlenecks/messaging.md) |
+| `notification-service` | [messaging](../bottlenecks/messaging.md) consumer |
 
-Endereço: `637423273088.dkr.ecr.us-east-2.amazonaws.com/<repositório>:<tag>`.
+Address: `637423273088.dkr.ecr.us-east-2.amazonaws.com/<repositório>:<tag>`.
 
-| Decisão | Motivo |
+| Decision | Reason |
 |---|---|
-| ECR (e não só o GHCR) para o EKS | Os pacotes do GHCR da org são privados. Os nós do EKS já têm permissão de leitura no ECR da própria conta, sem precisar de segredo de *pull*. |
-| **Scan on push** ligado | O ECR varre cada imagem enviada em busca de CVEs, uma segunda opinião além do Trivy do [CI](ci-cd.md). |
-| Nomes `*-service` | São os nomes que o `service.yaml` já usava; assim nenhum pipeline precisou mudar. |
+| ECR (not just GHCR) for EKS | The org's GHCR packages are private. EKS nodes already have read permission on the account's own ECR, with no *pull* secret needed. |
+| **Scan on push** enabled | ECR scans every pushed image for CVEs, a second opinion on top of [CI](ci-cd.md)'s Trivy. |
+| `*-service` names | These are the names `service.yaml` already used; so no pipeline had to change. |
 
-## Role do GitHub Actions (OIDC)
+## GitHub Actions role (OIDC) { #role-do-github-actions-oidc }
 
-O CI precisa enviar imagens ao ECR e fazer deploy no EKS. A forma comum seria criar um usuário IAM e
-guardar a **chave de acesso** dele como secret do GitHub. Não fizemos isso: uma chave fixa vale para
-sempre até alguém revogá-la, e se vazar (log, fork, repositório público) dá acesso à conta.
+CI needs to push images to ECR and deploy to EKS. The usual approach would be to create an IAM user and
+store its **access key** as a GitHub secret. We did not do that: a long-lived key is valid
+forever until someone revokes it, and if it leaks (log, fork, public repository) it grants access to the account.
 
-Em vez disso, a AWS **confia no GitHub** como provedor de identidade (OIDC):
+Instead, AWS **trusts GitHub** as an identity provider (OIDC):
 
-1. o job pede ao GitHub um **token OIDC** (por isso o `ci.yaml` precisa de `id-token: write`); o token
-   é assinado pelo GitHub e diz de qual repositório, branch e workflow ele veio;
-2. a action `aws-actions/configure-aws-credentials` troca esse token por **credenciais temporárias**
-   (`sts:AssumeRoleWithWebIdentity`) da role `github-actions-pna26`;
-3. a AWS só aceita se as **condições** da role baterem; as credenciais expiram em 1 hora.
+1. the job requests an **OIDC token** from GitHub (that is why `ci.yaml` needs `id-token: write`); the token
+   is signed by GitHub and states which repository, branch and workflow it came from;
+2. the `aws-actions/configure-aws-credentials` action exchanges that token for **temporary credentials**
+   (`sts:AssumeRoleWithWebIdentity`) of the `github-actions-pna26` role;
+3. AWS only accepts it if the role's **conditions** match; the credentials expire in 1 hour.
 
-| Peça | Valor |
+| Component | Value |
 |---|---|
-| Provedor OIDC | `token.actions.githubusercontent.com`, audiência `sts.amazonaws.com` |
+| OIDC provider | `token.actions.githubusercontent.com`, audience `sts.amazonaws.com` |
 | Role | `arn:aws:iam::637423273088:role/github-actions-pna26` |
-| Quem pode assumir | tokens com `sub` começando por `repo:pna26@317011053/` (qualquer repositório da org) |
-| O que pode fazer | login no ECR; push/pull **só** nos 5 repositórios acima; `eks:DescribeCluster` |
-| Dentro do cluster | access entry com `AmazonEKSAdminPolicy` + `RoleBinding` para o papel `admin`, **só no namespace `store`** (ver [EKS](eks.md#deploy-pelo-cicd)) |
+| Who can assume it | tokens whose `sub` starts with `repo:pna26@317011053/` (any repository in the org) |
+| What it can do | ECR login; push/pull **only** to the 5 repositories above; `eks:DescribeCluster` |
+| Inside the cluster | access entry with `AmazonEKSAdminPolicy` + `RoleBinding` to the `admin` role, **only in the `store` namespace** (see [EKS](eks.md#deploy-pelo-cicd)) |
 
-=== "Confiança (quem pode assumir)"
+=== "Trust (who can assume it)"
 
     ``` { .json .copy linenums="1" }
     --8<-- "setup/aws/github-actions-trust.json"
     ```
 
-=== "Permissões (o que pode fazer)"
+=== "Permissions (what it can do)"
 
     ``` { .json .copy linenums="1" }
     --8<-- "setup/aws/github-actions-permissions.json"
     ```
 
-As permissões seguem o **menor privilégio**: a role não cria nem apaga recursos da AWS, não lê outros
-repositórios do ECR e, no Kubernetes, só mexe no namespace `store`. Criar o cluster, o RDS e os
-Secrets continua sendo um passo manual, feito com o login SSO de uma pessoa.
+Permissions follow **least privilege**: the role neither creates nor deletes AWS resources, does not read other
+ECR repositories and, in Kubernetes, only touches the `store` namespace. Creating the cluster, RDS and the
+Secrets remains a manual step, done with a person's SSO login.
 
-O ARN da role, a região e o namespace ficam em **variáveis da organização** do GitHub
-(`AWS_ROLE_ARN`, `AWS_REGION`, `K8S_NAMESPACE` e, com o cluster no ar, `EKS_CLUSTER`), descritas em
-[CI/CD](ci-cd.md#configuracao-da-aws-alinhar-com-o-nicolas). Não são segredos: sem um token OIDC
-de um repositório da org, o ARN não serve para nada.
+The role ARN, region and namespace live in GitHub **organization variables**
+(`AWS_ROLE_ARN`, `AWS_REGION`, `K8S_NAMESPACE` and, with the cluster up, `EKS_CLUSTER`), described in
+[CI/CD](ci-cd.md#configuracao-da-aws-alinhar-com-o-nicolas). They are not secrets: without an OIDC token
+from an org repository, the ARN is useless.
 
-### Como foi criado
+### How it was created { #como-foi-criado }
 
 ``` bash
 # provedor OIDC do GitHub (uma vez por conta)
@@ -162,20 +162,20 @@ for r in gateway-service auth-service account-service exchange-service notificat
 done
 ```
 
-## Problemas encontrados
+## Issues encountered { #problemas-encontrados }
 
-| Problema | Causa | Solução |
+| Issue | Cause | Solution |
 |---|---|---|
-| CI falha com `Not authorized to perform sts:AssumeRoleWithWebIdentity` (10/11/2026, primeiro push depois de ligar o OIDC) | os repositórios da org usam o **subject imutável** do GitHub: o `sub` do token é `repo:pna26@317011053/account-service@1443117992:ref:refs/heads/main` (com os ids numéricos da org e do repositório), e a condição da role era `repo:pna26/*` | condição trocada para `repo:pna26@317011053/*`. É até mais seguro: o id numérico não muda, então outra org que um dia use o nome `pna26` não casa com a regra |
-| `docker login` no ECR falha no Windows | token SSO maior que o limite do Gerenciador de Credenciais do Windows | `docker-credential-ecr-login` (detalhes em [EKS](eks.md#problemas-encontrados)) |
+| CI fails with `Not authorized to perform sts:AssumeRoleWithWebIdentity` (10/11/2026, first push after enabling OIDC) | the org's repositories use GitHub's **immutable subject**: the token's `sub` is `repo:pna26@317011053/account-service@1443117992:ref:refs/heads/main` (with the numeric ids of the org and repository), and the role's condition was `repo:pna26/*` | condition changed to `repo:pna26@317011053/*`. It is even safer: the numeric id does not change, so another org that someday uses the name `pna26` does not match the rule |
+| `docker login` to ECR fails on Windows | SSO token larger than the Windows Credential Manager limit | `docker-credential-ecr-login` (details in [EKS](eks.md#problemas-encontrados)) |
 
-O formato do `sub` de um repositório aparece em
+A repository's `sub` format can be seen with
 `gh api repos/pna26/<repositório>/actions/oidc/customization/sub`.
 
-## Melhorias possíveis
+## Possible improvements { #melhorias-possiveis }
 
-| Melhoria | Efeito |
+| Improvement | Effect |
 |---|---|
-| Restringir a confiança a `...:ref:refs/heads/main` | só pushes na `main` assumiriam a role (hoje, um workflow em outro branch de um repositório da org também consegue) |
-| Ligar *secret scanning* e *push protection* na org | o GitHub bloqueia um push que contenha uma chave da AWS por engano |
-| Uma role por repositório | o CI do exchange não conseguiria enviar imagem para o repositório do account |
+| Restrict trust to `...:ref:refs/heads/main` | only pushes to `main` would assume the role (today, a workflow on another branch of an org repository can too) |
+| Enable *secret scanning* and *push protection* in the org | GitHub blocks a push that accidentally contains an AWS key |
+| One role per repository | exchange's CI would not be able to push an image to account's repository |

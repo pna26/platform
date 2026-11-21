@@ -1,75 +1,75 @@
 # Platform 2026.2 — pna26
 
-???+ info inline end "Edição"
+???+ info inline end "Edition"
 
     2026.2 · Insper
-    Plataformas, Microsserviços, DevOps e APIs
+    Platforms, Microservices, DevOps and APIs
 
-## Grupo
+## Group { #grupo }
 
-| Integrante | GitHub | Responsabilidades |
+| Member | GitHub | Responsibilities |
 |---|---|---|
-| Leonardo | [@souzxxx](https://github.com/souzxxx){target="_blank"} | Gateway, CI/CD, balanceamento de carga, cache (Redis), varredura de vulnerabilidades, documentação (MkDocs) |
-| Nicolas | [@NicolasVolf](https://github.com/NicolasVolf){target="_blank"} | Auth, Account, AWS, EKS, mensageria |
-| Gabriel | [@gabrielalmeidaconde](https://github.com/gabrielalmeidaconde){target="_blank"} | Exchange, testes de carga, observabilidade, PaaS/custos/SLA |
+| Leonardo | [@souzxxx](https://github.com/souzxxx){target="_blank"} | Gateway, CI/CD, load balancing, cache (Redis), vulnerability scanning, documentation (MkDocs) |
+| Nicolas | [@NicolasVolf](https://github.com/NicolasVolf){target="_blank"} | Auth, Account, AWS, EKS, messaging |
+| Gabriel | [@gabrielalmeidaconde](https://github.com/gabrielalmeidaconde){target="_blank"} | Exchange, load testing, observability, PaaS/costs/SLA |
 
-Quadro de tarefas: [Projeto Platform 2026.2](https://github.com/orgs/pna26/projects/1){target="_blank"}.
+Task board: [Platform 2026.2 project](https://github.com/orgs/pna26/projects/1){target="_blank"}.
 
-## O projeto
+## The project { #o-projeto }
 
-Uma plataforma de microsserviços para uma loja: o usuário se cadastra, faz login e consulta
-câmbio entre moedas. Todas as requisições entram por um único ponto (o **gateway**, atrás de um
-**balanceador Nginx**), que valida o token JWT e repassa a identidade do usuário para os serviços.
+A microservices platform for a store: the user signs up, logs in and looks up exchange rates
+between currencies. Every request comes in through a single entry point (the **gateway**, behind an
+**Nginx load balancer**), which validates the JWT token and forwards the user's identity to the services.
 
 ``` mermaid
 flowchart LR
     internet([Internet]) e0@==> lb["lb · Nginx"]
-    subgraph trusted [Camada confiável]
-        lb e1@==> gw["gateway<br/>(réplicas)"]
+    subgraph trusted [Trusted layer]
+        lb e1@==> gw["gateway<br/>(replicas)"]
         gw --> auth
         gw --> account
         gw --> exchange
         gw <-->|token → id| redis[(Redis)]
         auth --> account
         account --> db[(PostgreSQL)]
-        account -.->|evento| kafka[[Kafka]] -.-> notification
+        account -.->|event| kafka[[Kafka]] -.-> notification
     end
-    exchange --> api3([API de câmbio])
+    exchange --> api3([Exchange rate API])
     e0@{ animate: true }
     e1@{ animate: true }
 ```
 
-Detalhes em [Arquitetura](arquitetura.md).
+Details in [Architecture](arquitetura.md).
 
-## Repositórios
+## Repositories { #repositorios }
 
-| Repositório | O que é | Responsável |
+| Repository | What it is | Owner |
 |---|---|---|
-| [pna26/platform](https://github.com/pna26/platform){target="_blank"} | Repositório principal: esta documentação, `compose.yaml`, Nginx, manifestos k8s compartilhados, pipeline reutilizável e os serviços como submódulos | Leonardo |
+| [pna26/platform](https://github.com/pna26/platform){target="_blank"} | Main repository: this documentation, `compose.yaml`, Nginx, shared k8s manifests, reusable pipeline and the services as submodules | Leonardo |
 | [pna26/gateway-service](https://github.com/pna26/gateway-service){target="_blank"} | API gateway (Spring Cloud Gateway) | Leonardo |
-| [pna26/auth](https://github.com/pna26/auth){target="_blank"} | Interface (Feign) e DTOs do Auth | Nicolas |
-| [pna26/auth-service](https://github.com/pna26/auth-service){target="_blank"} | Implementação do Auth (JWT) | Nicolas |
-| [pna26/account](https://github.com/pna26/account){target="_blank"} | Interface (Feign) e DTOs do Account | Nicolas |
-| [pna26/account-service](https://github.com/pna26/account-service){target="_blank"} | Implementação do Account (PostgreSQL + Flyway) | Nicolas |
-| [pna26/exchange-service](https://github.com/pna26/exchange-service){target="_blank"} | Câmbio (Python/FastAPI, PTAX do Banco Central) | Gabriel |
-| [pna26/notification-service](https://github.com/pna26/notification-service){target="_blank"} | Consumidor Kafka: e-mail de boas-vindas (mensageria) | Nicolas |
+| [pna26/auth](https://github.com/pna26/auth){target="_blank"} | Auth interface (Feign) and DTOs | Nicolas |
+| [pna26/auth-service](https://github.com/pna26/auth-service){target="_blank"} | Auth implementation (JWT) | Nicolas |
+| [pna26/account](https://github.com/pna26/account){target="_blank"} | Account interface (Feign) and DTOs | Nicolas |
+| [pna26/account-service](https://github.com/pna26/account-service){target="_blank"} | Account implementation (PostgreSQL + Flyway) | Nicolas |
+| [pna26/exchange-service](https://github.com/pna26/exchange-service){target="_blank"} | Exchange rates (Python/FastAPI) | Gabriel |
+| [pna26/notification-service](https://github.com/pna26/notification-service){target="_blank"} | Kafka consumer: welcome e-mail (messaging) | Nicolas |
 
-## Entregas
+## Deliverables { #entregas }
 
-| Tarefa | Peso | Responsável | Status |
+| Task | Weight | Owner | Status |
 |---|---:|---|---|
-| [Gateway](servicos/gateway.md) | 5% | Leonardo | :material-check: pronto |
-| [Auth](servicos/auth.md) | 5% | Nicolas | :material-check: pronto |
-| [Account](servicos/account.md) | 5% | Nicolas | :material-check: pronto |
-| [Exchange](servicos/exchange.md) | 5% | Gabriel | :material-check: pronto |
-| [Bottlenecks](bottlenecks/index.md) | 20% | todos | 7 implementados (2+ por integrante) e verificados no compose/CI; mensageria também no EKS (16/11) |
-| [AWS](devops/aws.md) | 5% | Nicolas | :material-check: pronto (CI entra na AWS por OIDC desde 10/11) |
-| [EKS](devops/eks.md) | 10% | Nicolas | cluster testado em 08/11 (deploy manual + smoke test); deploy automático pelo CI comprovado em 16/11 ([runs](devops/eks.md#deploy-pelo-cicd)); teste de carga com HPA no EKS em 19/11 ([resultado](devops/load-testing.md#resultado-no-eks)) |
-| [CI/CD (GitHub Actions)](devops/ci-cd.md) | 10% | Leonardo | pipeline pronto em todos os repositórios; OIDC, push no ECR e deploy no EKS comprovados (account, auth e notification em 16/11, [evidência](devops/ci-cd.md#evidencia)); gateway, exchange e o `infra` com o fix do `lb` na próxima subida do cluster |
-| [Testes de carga](devops/load-testing.md) | 15% | Gabriel | feito no compose, ensaiado num cluster kind (12/11) e no EKS com o HPA escalando de 2 para 6 réplicas (19/11, [resultado](devops/load-testing.md#resultado-no-eks), vídeo e prints) |
-| [PaaS, custos e SLA](devops/custos-sla.md) | 10% | Gabriel | :material-check: pronto |
-| Documentação (MkDocs) | 10% | todos | :material-check: pronto (publicada pelo GitHub Actions, com `mkdocs build --strict`) |
+| [Gateway](servicos/gateway.md) | 5% | Leonardo | :material-check: done |
+| [Auth](servicos/auth.md) | 5% | Nicolas | :material-check: done |
+| [Account](servicos/account.md) | 5% | Nicolas | :material-check: done |
+| [Exchange](servicos/exchange.md) | 5% | Gabriel | :material-check: done |
+| [Bottlenecks](bottlenecks/index.md) | 20% | everyone | 7 implemented (2+ per member) and verified in compose/CI; messaging also on EKS (16/11) |
+| [AWS](devops/aws.md) | 5% | Nicolas | :material-check: done (CI signs in to AWS via OIDC since 10/11) |
+| [EKS](devops/eks.md) | 10% | Nicolas | cluster tested on 08/11 (manual deploy + smoke test); automatic deploy from CI proven on 16/11 ([runs](devops/eks.md#deploy-pelo-cicd)); load test with HPA on EKS on 19/11 ([result](devops/load-testing.md#resultado-no-eks)) |
+| [CI/CD (GitHub Actions)](devops/ci-cd.md) | 10% | Leonardo | pipeline ready in every repository; OIDC, push to ECR and deploy to EKS proven (account, auth and notification on 16/11, [evidence](devops/ci-cd.md#evidencia)); gateway, exchange and `infra` with the `lb` fix on the next cluster spin-up |
+| [Load testing](devops/load-testing.md) | 15% | Gabriel | done on compose, rehearsed on a kind cluster (12/11) and run on EKS with the HPA scaling from 2 to 6 replicas (19/11, [result](devops/load-testing.md#resultado-no-eks), video and screenshots) |
+| [PaaS, costs and SLA](devops/custos-sla.md) | 10% | Gabriel | :material-check: done |
+| Documentation (MkDocs) | 10% | everyone | :material-check: done (published by GitHub Actions, with `mkdocs build --strict`) |
 
-## Apresentação
+## Presentation { #apresentacao }
 
-Vídeo de 1 a 2 minutos com o projeto e os bottlenecks, sem narração e com legendas: veja [Apresentação](apresentacao.md).
+A 1 to 2 minute video of the project and the bottlenecks, with no narration and with subtitles: see [Presentation](apresentacao.md).

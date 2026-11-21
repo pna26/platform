@@ -1,42 +1,42 @@
-# Apresentação
+# Presentation
 
-Vídeo de **1 a 2 minutos** com o projeto e os bottlenecks, pedido pelo curso. Sem narração: cada cena tem
-uma legenda curta explicando o que aparece na tela.
+A **1 to 2 minute** video showing the project and the bottlenecks, as required by the course. No narration: each scene has
+a short caption explaining what is on screen.
 
-## Vídeo de apresentação (1–2 min)
+## Presentation video (1–2 min) { #video-de-apresentacao-12-min }
 
 <video controls preload="metadata" width="100%" src="../assets/apresentacao-pna26.mp4"></video>
 
-## Roteiro
+## Script { #roteiro }
 
-| Tempo | Cena | O que aparece |
+| Time | Scene | What is shown |
 |---|---|---|
-| 0:00–0:04 | Abertura | Grupo pna26 (Leonardo, Gabriel, Nicolas), disciplina e o projeto: loja em microsserviços |
-| 0:04–0:21 | Arquitetura, CI/CD e EKS | Diagrama da [Home](index.md): Nginx → réplicas do gateway → Auth, Account, Exchange; Redis, PostgreSQL (RDS) e Kafka. Pipeline do [CI/CD](devops/ci-cd.md) e a VPC do [EKS](devops/eks.md) |
-| 0:21–0:50 | Plataforma no EKS, ao vivo pelo ELB | `health-check` respondido por 2 réplicas do gateway, cadastro, login com cookie `HttpOnly` (token oculto), `GET /auth/me` com o token, `401` sem token e com `id-account` forjado, RBAC (`200` na própria conta, `403` ao listar as dos outros) |
-| 0:50–1:23 | Bottlenecks | Um por página, com o número que mostra o efeito (tabela abaixo) |
-| 1:23–1:35 | Teste de carga com HPA no EKS | Gravação de 19/11: k6 com 100 usuários e o HPA levando o gateway de 2 para 6 réplicas, 0 % de requisições HTTP com erro, p95 de 254 ms ([resultado](devops/load-testing.md#resultado-no-eks)) |
-| 1:35–1:46 | Custos e próximos passos | ≈ US$ 0,29/h com tudo ligado ([Custos](devops/custos-sla.md)); HTTPS com domínio próprio, Multi-AZ no RDS, pool de conexões no Auth, Kafka com disco persistente |
+| 0:00–0:04 | Opening | Group pna26 (Leonardo, Gabriel, Nicolas), the course, and the project: a microservices store |
+| 0:04–0:21 | Architecture, CI/CD, and EKS | Diagram from the [Home](index.md) page: Nginx → gateway replicas → Auth, Account, Exchange; Redis, PostgreSQL (RDS), and Kafka. The [CI/CD](devops/ci-cd.md) pipeline and the [EKS](devops/eks.md) VPC |
+| 0:21–0:50 | Platform on EKS, live through the ELB | `health-check` answered by 2 gateway replicas, sign-up, login with an `HttpOnly` cookie (token hidden), `GET /auth/me` with the token, `401` without a token and with a forged `id-account`, RBAC (`200` on one's own account, `403` when listing other users' accounts) |
+| 0:50–1:23 | Bottlenecks | One per page, with the number that shows the effect (table below) |
+| 1:23–1:35 | Load test with HPA on EKS | Recording from 19/11: k6 with 100 users and the HPA scaling the gateway from 2 to 6 replicas, 0 % failed HTTP requests, p95 of 254 ms ([result](devops/load-testing.md#resultado-no-eks)) |
+| 1:35–1:46 | Costs and next steps | ≈ US$ 0.29/h with everything running ([Costs](devops/custos-sla.md)); HTTPS with a custom domain, Multi-AZ on RDS, connection pooling in Auth, Kafka with persistent storage |
 
-Duração final: **1 min 45 s**. A demonstração ao vivo foi gravada em 20/11/2026 com o `eks-store` no ar
-(deploy pelo CI); o câmbio ficou fora dela porque o exchange publicado ainda usava a AwesomeAPI, que
-responde `429` para a AWS (ver [Exchange](servicos/exchange.md)).
+Final length: **1 min 45 s**. The live demo was recorded on 20/11/2026 with `eks-store` up
+(deployed by CI); the exchange rate was left out of it because the deployed exchange service still used AwesomeAPI, which
+returns `429` to AWS (see [Exchange](servicos/exchange.md)).
 
-## Bottlenecks no vídeo
+## Bottlenecks in the video { #bottlenecks-no-video }
 
-| Bottleneck | Quem | Número mostrado | Página |
+| Bottleneck | Who | Number shown | Page |
 |---|---|---|---|
-| Balanceamento de carga | Leonardo | Nginx distribuindo entre N réplicas do gateway; réplicas novas entram sem `reload` | [Balanceamento](bottlenecks/load-balancing.md) |
-| Cache do token (Redis) | Leonardo | 3.001 requisições autenticadas → **1** chamada ao Auth (3.000 hits) | [Cache](bottlenecks/cache.md) |
-| Varredura de vulnerabilidades | Leonardo | Trivy bloqueia CVE CRITICAL corrigível; imagem final com 0 HIGH/CRITICAL; OWASP ZAP no gateway | [Varredura](bottlenecks/vulnerability-scanning.md) |
-| Cache da cotação | Gabriel | p95 da cotação de **49 ms → 4 ms** (−92 %) | [Cache da cotação](bottlenecks/exchange-cache.md) |
-| Observabilidade | Gabriel | Grafana por réplica: com o HPA, as réplicas novas recebem carga só ≈ 1,5 min depois de prontas | [Observabilidade](bottlenecks/observability.md) |
-| Mensageria (Kafka) | Nicolas | Cadastro em ~15 ms com o consumidor **ou** o Kafka fora; 0 eventos perdidos, 0 e-mails duplicados | [Mensageria](bottlenecks/messaging.md) |
-| Autorização (RBAC) | Nicolas | Conta `USER` recebe `403` ao listar as contas dos outros e `200` na própria (ao vivo, pelo ELB) | [RBAC](bottlenecks/rbac.md) |
+| Load balancing | Leonardo | Nginx distributing across N gateway replicas; new replicas join without a `reload` | [Load balancing](bottlenecks/load-balancing.md) |
+| Token cache (Redis) | Leonardo | 3,001 authenticated requests → **1** call to Auth (3,000 hits) | [Cache](bottlenecks/cache.md) |
+| Vulnerability scanning | Leonardo | Trivy blocks fixable CRITICAL CVEs; final image with 0 HIGH/CRITICAL; OWASP ZAP on the gateway | [Scanning](bottlenecks/vulnerability-scanning.md) |
+| Exchange rate cache | Gabriel | Exchange rate p95 from **49 ms → 4 ms** (−92 %) | [Exchange rate cache](bottlenecks/exchange-cache.md) |
+| Observability | Gabriel | Grafana per replica: with the HPA, new replicas only receive load ≈ 1.5 min after becoming ready | [Observability](bottlenecks/observability.md) |
+| Messaging (Kafka) | Nicolas | Sign-up in ~15 ms with the consumer **or** Kafka down; 0 lost events, 0 duplicate emails | [Messaging](bottlenecks/messaging.md) |
+| Authorization (RBAC) | Nicolas | A `USER` account gets `403` when listing other users' accounts and `200` on its own (live, through the ELB) | [RBAC](bottlenecks/rbac.md) |
 
-## Como o vídeo foi feito
+## How the video was made { #como-o-video-foi-feito }
 
-As cenas das páginas desta documentação foram gravadas com **Playwright** (navegador automatizado, com a
-legenda posta na própria página); a demonstração no EKS usa só HTTP pelo ELB público, como um usuário
-qualquer, com o JWT e a senha da conta de demonstração ocultos na tela. O **ffmpeg** junta as cenas num
+The scenes from this documentation's pages were recorded with **Playwright** (an automated browser, with the
+caption placed on the page itself); the EKS demo uses only HTTP through the public ELB, like any
+regular user, with the JWT and the demo account's password hidden on screen. **ffmpeg** stitches the scenes into an
 MP4 (H.264, 1280×720).
