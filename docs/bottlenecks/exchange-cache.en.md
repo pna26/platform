@@ -2,6 +2,12 @@
 
 !!! info "Owner: Gabriel"
 
+!!! note "Provider"
+
+    The measurements on this page were taken with AwesomeAPI. Since 20/11 the default provider is the
+    Central Bank of Brazil's PTAX ([Exchange](../servicos/exchange.md)); the cache (30 s TTL, per-pair lock
+    and *stale-if-error*) is the same and still needed: PTAX is a public service, never load-test it.
+
 ## Problem { #problema }
 
 Exchange depends on a **third-party API** (AwesomeAPI). Without a cache, every

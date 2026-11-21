@@ -2,6 +2,12 @@
 
 !!! info "Responsável: Gabriel"
 
+!!! note "Provedor"
+
+    As medições desta página foram feitas com a AwesomeAPI. Desde 20/11 o provedor padrão é a PTAX do
+    Banco Central ([Exchange](../servicos/exchange.md)); o cache (TTL de 30 s, lock por par e
+    *stale-if-error*) é o mesmo e continua necessário: a PTAX é um serviço público, sem teste de carga nela.
+
 ## Problema
 
 O Exchange depende de uma **API de terceiros** (AwesomeAPI). Sem cache, toda requisição
