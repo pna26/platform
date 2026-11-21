@@ -14,9 +14,9 @@ uma legenda curta explicando o que aparece na tela.
 | 0:00–0:04 | Abertura | Grupo pna26 (Leonardo, Gabriel, Nicolas), disciplina e o projeto: loja em microsserviços |
 | 0:04–0:21 | Arquitetura, CI/CD e EKS | Diagrama da [Home](index.md): Nginx → réplicas do gateway → Auth, Account, Exchange; Redis, PostgreSQL (RDS) e Kafka. Pipeline do [CI/CD](devops/ci-cd.md) e a VPC do [EKS](devops/eks.md) |
 | 0:21–0:59 | Plataforma no EKS | `kubectl get pods / hpa / svc` no `eks-store`; pelo ELB: o `health-check` respondendo de réplicas diferentes do gateway, cadastro, login com cookie `HttpOnly`, rota protegida com token, `401` sem token e com `id-account` forjado, RBAC (`200` na própria conta, `403` ao listar as dos outros) e câmbio; o log do `notification` com o e-mail de boas-vindas que chegou pelo Kafka |
-| 0:59–1:32 | Bottlenecks | Um por página, com o número que mostra o efeito (tabela abaixo) |
-| 1:32–1:43 | Teste de carga com HPA | k6 com 100 usuários e o HPA escalando o gateway ([Testes de carga](devops/load-testing.md#teste-no-eks-com-hpa)) |
-| 1:43–1:54 | Custos e próximos passos | ≈ US$ 0,29/h com tudo ligado ([Custos](devops/custos-sla.md)); HTTPS com domínio próprio, Multi-AZ no RDS, pool de conexões no Auth, Kafka com disco persistente |
+| 0:59–1:34 | Bottlenecks | Um por página, com o número que mostra o efeito (tabela abaixo) |
+| 1:34–1:46 | Teste de carga com HPA no EKS | Gravação de 19/11: k6 com 100 usuários e o HPA levando o gateway de 2 para 6 réplicas, 0 % de erro, p95 de 254 ms ([resultado](devops/load-testing.md#resultado-no-eks)) |
+| 1:46–1:57 | Custos e próximos passos | ≈ US$ 0,29/h com tudo ligado ([Custos](devops/custos-sla.md)); HTTPS com domínio próprio, Multi-AZ no RDS, pool de conexões no Auth, Kafka com disco persistente |
 
 ## Bottlenecks no vídeo
 
