@@ -172,7 +172,9 @@ do gateway quando a CPU média passa de 50 % do `request` (250m → 125m por pod
       `kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml`
       e, depois de ≈ 1 min, `kubectl top nodes`.
     - **Cenário `auth`, não `exchange` nem `mixed`:** a AwesomeAPI devolveu `429` para o IP da AWS, então
-      o Exchange responde `503` no EKS (o `mixed` tem 15 % de câmbio: sairiam ≈ 15 % de erro).
+      o Exchange responde `503` no EKS (o `mixed` tem 15 % de câmbio: sairiam ≈ 15 % de erro). Com o exchange
+      na PTAX do BACEN ([Exchange](../servicos/exchange.md)) o câmbio deixa de depender da AwesomeAPI, mas a PTAX
+      é um serviço público: só com o cache ligado, sem teste de carga contra ela.
     - **Ninguém faz push na `main` durante a gravação:** o deploy do CI faz `kubectl apply` do manifesto
       do gateway (`replicas: 2`) e briga com o HPA.
     - **Capacidade:** os 2 nós fixos têm espaço para **mais ≈ 6 réplicas do gateway** (conta em

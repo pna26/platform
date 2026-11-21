@@ -144,7 +144,8 @@ segura até 10 min de queda dela. No `eks-store`, a saída para a AwesomeAPI ain
 gateway** (numa zona só): se ele ou a zona caem, o Exchange perde a API externa, mas o resto da
 plataforma não sai do ar, porque nenhuma outra rota depende da internet. E no teste do Nicolas a
 AwesomeAPI respondeu `429` para o IP da AWS: o limite gratuito é por IP, e o IP do NAT é compartilhado
-por todos os pods. Um `EXCHANGE_API_TOKEN` resolve.
+por todos os pods. Por isso o Exchange passou a usar a PTAX do Banco Central ([Exchange](../servicos/exchange.md)),
+pública e sem esse bloqueio.
 
 ### Nosso SLO
 

@@ -273,4 +273,4 @@ por mês).
 | `gh variable set --org` devolve 403 | o token do `gh` não tem o escopo `admin:org` | `gh auth refresh -h github.com -s admin:org` (e `--remove-scopes admin:org` depois) |
 | `aws` responde `Token has expired and refresh failed` | a sessão SSO expirou | `aws sso login` |
 | pods do `lb` reiniciam 2 vezes no primeiro deploy | o Nginx resolve `gateway` ao iniciar e subiu antes do Service `gateway` existir | nenhuma: na tentativa seguinte o Service já existe |
-| exchange devolve 503 no EKS | a AwesomeAPI responde 429 para o IP de saída da AWS | comportamento esperado do exchange (cache + 503); afeta o cenário `exchange` do teste de carga |
+| exchange devolve 503 no EKS | a AwesomeAPI responde 429 para o IP de saída da AWS | comportamento esperado do exchange (cache + 503); afeta o cenário `exchange` do teste de carga. **Correção:** o exchange passou a usar a PTAX do BACEN, pública e sem bloqueio de nuvem ([Exchange](../servicos/exchange.md)); confirmar no próximo deploy |
