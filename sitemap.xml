@@ -1,95 +1,325 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">
     <url>
-         <loc>https://pna26.github.io/platform/</loc>
-         <lastmod>2026-11-17</lastmod>
+        <loc>https://pna26.github.io/platform/</loc>
+        <lastmod>2026-11-21</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://pna26.github.io/platform/"/>
+        <xhtml:link rel="alternate" hreflang="pt" href="https://pna26.github.io/platform/pt/"/>
     </url>
     <url>
-         <loc>https://pna26.github.io/platform/apresentacao/</loc>
-         <lastmod>2026-11-17</lastmod>
+        <loc>https://pna26.github.io/platform/apresentacao/</loc>
+        <lastmod>2026-11-21</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://pna26.github.io/platform/apresentacao/"/>
+        <xhtml:link rel="alternate" hreflang="pt" href="https://pna26.github.io/platform/pt/apresentacao/"/>
     </url>
     <url>
-         <loc>https://pna26.github.io/platform/arquitetura/</loc>
-         <lastmod>2026-11-17</lastmod>
+        <loc>https://pna26.github.io/platform/arquitetura/</loc>
+        <lastmod>2026-11-21</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://pna26.github.io/platform/arquitetura/"/>
+        <xhtml:link rel="alternate" hreflang="pt" href="https://pna26.github.io/platform/pt/arquitetura/"/>
     </url>
     <url>
-         <loc>https://pna26.github.io/platform/como-rodar/</loc>
-         <lastmod>2026-11-17</lastmod>
+        <loc>https://pna26.github.io/platform/como-rodar/</loc>
+        <lastmod>2026-11-21</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://pna26.github.io/platform/como-rodar/"/>
+        <xhtml:link rel="alternate" hreflang="pt" href="https://pna26.github.io/platform/pt/como-rodar/"/>
     </url>
     <url>
-         <loc>https://pna26.github.io/platform/thisdocumentation/</loc>
-         <lastmod>2026-11-17</lastmod>
+        <loc>https://pna26.github.io/platform/thisdocumentation/</loc>
+        <lastmod>2026-11-21</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://pna26.github.io/platform/thisdocumentation/"/>
+        <xhtml:link rel="alternate" hreflang="pt" href="https://pna26.github.io/platform/pt/thisdocumentation/"/>
     </url>
     <url>
-         <loc>https://pna26.github.io/platform/uso-de-ia/</loc>
-         <lastmod>2026-11-17</lastmod>
+        <loc>https://pna26.github.io/platform/uso-de-ia/</loc>
+        <lastmod>2026-11-21</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://pna26.github.io/platform/uso-de-ia/"/>
+        <xhtml:link rel="alternate" hreflang="pt" href="https://pna26.github.io/platform/pt/uso-de-ia/"/>
     </url>
     <url>
-         <loc>https://pna26.github.io/platform/bottlenecks/</loc>
-         <lastmod>2026-11-17</lastmod>
+        <loc>https://pna26.github.io/platform/bottlenecks/</loc>
+        <lastmod>2026-11-21</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://pna26.github.io/platform/bottlenecks/"/>
+        <xhtml:link rel="alternate" hreflang="pt" href="https://pna26.github.io/platform/pt/bottlenecks/"/>
     </url>
     <url>
-         <loc>https://pna26.github.io/platform/bottlenecks/cache/</loc>
-         <lastmod>2026-11-17</lastmod>
+        <loc>https://pna26.github.io/platform/bottlenecks/cache/</loc>
+        <lastmod>2026-11-21</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://pna26.github.io/platform/bottlenecks/cache/"/>
+        <xhtml:link rel="alternate" hreflang="pt" href="https://pna26.github.io/platform/pt/bottlenecks/cache/"/>
     </url>
     <url>
-         <loc>https://pna26.github.io/platform/bottlenecks/exchange-cache/</loc>
-         <lastmod>2026-11-17</lastmod>
+        <loc>https://pna26.github.io/platform/bottlenecks/exchange-cache/</loc>
+        <lastmod>2026-11-21</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://pna26.github.io/platform/bottlenecks/exchange-cache/"/>
+        <xhtml:link rel="alternate" hreflang="pt" href="https://pna26.github.io/platform/pt/bottlenecks/exchange-cache/"/>
     </url>
     <url>
-         <loc>https://pna26.github.io/platform/bottlenecks/load-balancing/</loc>
-         <lastmod>2026-11-17</lastmod>
+        <loc>https://pna26.github.io/platform/bottlenecks/load-balancing/</loc>
+        <lastmod>2026-11-21</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://pna26.github.io/platform/bottlenecks/load-balancing/"/>
+        <xhtml:link rel="alternate" hreflang="pt" href="https://pna26.github.io/platform/pt/bottlenecks/load-balancing/"/>
     </url>
     <url>
-         <loc>https://pna26.github.io/platform/bottlenecks/messaging/</loc>
-         <lastmod>2026-11-17</lastmod>
+        <loc>https://pna26.github.io/platform/bottlenecks/messaging/</loc>
+        <lastmod>2026-11-21</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://pna26.github.io/platform/bottlenecks/messaging/"/>
+        <xhtml:link rel="alternate" hreflang="pt" href="https://pna26.github.io/platform/pt/bottlenecks/messaging/"/>
     </url>
     <url>
-         <loc>https://pna26.github.io/platform/bottlenecks/observability/</loc>
-         <lastmod>2026-11-17</lastmod>
+        <loc>https://pna26.github.io/platform/bottlenecks/observability/</loc>
+        <lastmod>2026-11-21</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://pna26.github.io/platform/bottlenecks/observability/"/>
+        <xhtml:link rel="alternate" hreflang="pt" href="https://pna26.github.io/platform/pt/bottlenecks/observability/"/>
     </url>
     <url>
-         <loc>https://pna26.github.io/platform/bottlenecks/rbac/</loc>
-         <lastmod>2026-11-17</lastmod>
+        <loc>https://pna26.github.io/platform/bottlenecks/rbac/</loc>
+        <lastmod>2026-11-21</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://pna26.github.io/platform/bottlenecks/rbac/"/>
+        <xhtml:link rel="alternate" hreflang="pt" href="https://pna26.github.io/platform/pt/bottlenecks/rbac/"/>
     </url>
     <url>
-         <loc>https://pna26.github.io/platform/bottlenecks/vulnerability-scanning/</loc>
-         <lastmod>2026-11-17</lastmod>
+        <loc>https://pna26.github.io/platform/bottlenecks/vulnerability-scanning/</loc>
+        <lastmod>2026-11-21</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://pna26.github.io/platform/bottlenecks/vulnerability-scanning/"/>
+        <xhtml:link rel="alternate" hreflang="pt" href="https://pna26.github.io/platform/pt/bottlenecks/vulnerability-scanning/"/>
     </url>
     <url>
-         <loc>https://pna26.github.io/platform/devops/aws/</loc>
-         <lastmod>2026-11-17</lastmod>
+        <loc>https://pna26.github.io/platform/devops/aws/</loc>
+        <lastmod>2026-11-21</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://pna26.github.io/platform/devops/aws/"/>
+        <xhtml:link rel="alternate" hreflang="pt" href="https://pna26.github.io/platform/pt/devops/aws/"/>
     </url>
     <url>
-         <loc>https://pna26.github.io/platform/devops/ci-cd/</loc>
-         <lastmod>2026-11-17</lastmod>
+        <loc>https://pna26.github.io/platform/devops/ci-cd/</loc>
+        <lastmod>2026-11-21</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://pna26.github.io/platform/devops/ci-cd/"/>
+        <xhtml:link rel="alternate" hreflang="pt" href="https://pna26.github.io/platform/pt/devops/ci-cd/"/>
     </url>
     <url>
-         <loc>https://pna26.github.io/platform/devops/custos-sla/</loc>
-         <lastmod>2026-11-17</lastmod>
+        <loc>https://pna26.github.io/platform/devops/custos-sla/</loc>
+        <lastmod>2026-11-21</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://pna26.github.io/platform/devops/custos-sla/"/>
+        <xhtml:link rel="alternate" hreflang="pt" href="https://pna26.github.io/platform/pt/devops/custos-sla/"/>
     </url>
     <url>
-         <loc>https://pna26.github.io/platform/devops/eks/</loc>
-         <lastmod>2026-11-17</lastmod>
+        <loc>https://pna26.github.io/platform/devops/eks/</loc>
+        <lastmod>2026-11-21</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://pna26.github.io/platform/devops/eks/"/>
+        <xhtml:link rel="alternate" hreflang="pt" href="https://pna26.github.io/platform/pt/devops/eks/"/>
     </url>
     <url>
-         <loc>https://pna26.github.io/platform/devops/load-testing/</loc>
-         <lastmod>2026-11-17</lastmod>
+        <loc>https://pna26.github.io/platform/devops/load-testing/</loc>
+        <lastmod>2026-11-21</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://pna26.github.io/platform/devops/load-testing/"/>
+        <xhtml:link rel="alternate" hreflang="pt" href="https://pna26.github.io/platform/pt/devops/load-testing/"/>
     </url>
     <url>
-         <loc>https://pna26.github.io/platform/servicos/account/</loc>
-         <lastmod>2026-11-17</lastmod>
+        <loc>https://pna26.github.io/platform/servicos/account/</loc>
+        <lastmod>2026-11-21</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://pna26.github.io/platform/servicos/account/"/>
+        <xhtml:link rel="alternate" hreflang="pt" href="https://pna26.github.io/platform/pt/servicos/account/"/>
     </url>
     <url>
-         <loc>https://pna26.github.io/platform/servicos/auth/</loc>
-         <lastmod>2026-11-17</lastmod>
+        <loc>https://pna26.github.io/platform/servicos/auth/</loc>
+        <lastmod>2026-11-21</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://pna26.github.io/platform/servicos/auth/"/>
+        <xhtml:link rel="alternate" hreflang="pt" href="https://pna26.github.io/platform/pt/servicos/auth/"/>
     </url>
     <url>
-         <loc>https://pna26.github.io/platform/servicos/exchange/</loc>
-         <lastmod>2026-11-17</lastmod>
+        <loc>https://pna26.github.io/platform/servicos/exchange/</loc>
+        <lastmod>2026-11-21</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://pna26.github.io/platform/servicos/exchange/"/>
+        <xhtml:link rel="alternate" hreflang="pt" href="https://pna26.github.io/platform/pt/servicos/exchange/"/>
     </url>
     <url>
-         <loc>https://pna26.github.io/platform/servicos/gateway/</loc>
-         <lastmod>2026-11-17</lastmod>
+        <loc>https://pna26.github.io/platform/servicos/gateway/</loc>
+        <lastmod>2026-11-21</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://pna26.github.io/platform/servicos/gateway/"/>
+        <xhtml:link rel="alternate" hreflang="pt" href="https://pna26.github.io/platform/pt/servicos/gateway/"/>
+    </url>
+    <url>
+        <loc>https://pna26.github.io/platform/pt/</loc>
+        <lastmod>2026-11-21</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="pt" href="https://pna26.github.io/platform/pt/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://pna26.github.io/platform/"/>
+    </url>
+    <url>
+        <loc>https://pna26.github.io/platform/pt/apresentacao/</loc>
+        <lastmod>2026-11-21</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="pt" href="https://pna26.github.io/platform/pt/apresentacao/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://pna26.github.io/platform/apresentacao/"/>
+    </url>
+    <url>
+        <loc>https://pna26.github.io/platform/pt/arquitetura/</loc>
+        <lastmod>2026-11-21</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="pt" href="https://pna26.github.io/platform/pt/arquitetura/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://pna26.github.io/platform/arquitetura/"/>
+    </url>
+    <url>
+        <loc>https://pna26.github.io/platform/pt/como-rodar/</loc>
+        <lastmod>2026-11-21</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="pt" href="https://pna26.github.io/platform/pt/como-rodar/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://pna26.github.io/platform/como-rodar/"/>
+    </url>
+    <url>
+        <loc>https://pna26.github.io/platform/pt/thisdocumentation/</loc>
+        <lastmod>2026-11-21</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="pt" href="https://pna26.github.io/platform/pt/thisdocumentation/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://pna26.github.io/platform/thisdocumentation/"/>
+    </url>
+    <url>
+        <loc>https://pna26.github.io/platform/pt/uso-de-ia/</loc>
+        <lastmod>2026-11-21</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="pt" href="https://pna26.github.io/platform/pt/uso-de-ia/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://pna26.github.io/platform/uso-de-ia/"/>
+    </url>
+    <url>
+        <loc>https://pna26.github.io/platform/pt/bottlenecks/</loc>
+        <lastmod>2026-11-21</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="pt" href="https://pna26.github.io/platform/pt/bottlenecks/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://pna26.github.io/platform/bottlenecks/"/>
+    </url>
+    <url>
+        <loc>https://pna26.github.io/platform/pt/bottlenecks/cache/</loc>
+        <lastmod>2026-11-21</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="pt" href="https://pna26.github.io/platform/pt/bottlenecks/cache/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://pna26.github.io/platform/bottlenecks/cache/"/>
+    </url>
+    <url>
+        <loc>https://pna26.github.io/platform/pt/bottlenecks/exchange-cache/</loc>
+        <lastmod>2026-11-21</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="pt" href="https://pna26.github.io/platform/pt/bottlenecks/exchange-cache/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://pna26.github.io/platform/bottlenecks/exchange-cache/"/>
+    </url>
+    <url>
+        <loc>https://pna26.github.io/platform/pt/bottlenecks/load-balancing/</loc>
+        <lastmod>2026-11-21</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="pt" href="https://pna26.github.io/platform/pt/bottlenecks/load-balancing/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://pna26.github.io/platform/bottlenecks/load-balancing/"/>
+    </url>
+    <url>
+        <loc>https://pna26.github.io/platform/pt/bottlenecks/messaging/</loc>
+        <lastmod>2026-11-21</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="pt" href="https://pna26.github.io/platform/pt/bottlenecks/messaging/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://pna26.github.io/platform/bottlenecks/messaging/"/>
+    </url>
+    <url>
+        <loc>https://pna26.github.io/platform/pt/bottlenecks/observability/</loc>
+        <lastmod>2026-11-21</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="pt" href="https://pna26.github.io/platform/pt/bottlenecks/observability/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://pna26.github.io/platform/bottlenecks/observability/"/>
+    </url>
+    <url>
+        <loc>https://pna26.github.io/platform/pt/bottlenecks/rbac/</loc>
+        <lastmod>2026-11-21</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="pt" href="https://pna26.github.io/platform/pt/bottlenecks/rbac/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://pna26.github.io/platform/bottlenecks/rbac/"/>
+    </url>
+    <url>
+        <loc>https://pna26.github.io/platform/pt/bottlenecks/vulnerability-scanning/</loc>
+        <lastmod>2026-11-21</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="pt" href="https://pna26.github.io/platform/pt/bottlenecks/vulnerability-scanning/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://pna26.github.io/platform/bottlenecks/vulnerability-scanning/"/>
+    </url>
+    <url>
+        <loc>https://pna26.github.io/platform/pt/devops/aws/</loc>
+        <lastmod>2026-11-21</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="pt" href="https://pna26.github.io/platform/pt/devops/aws/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://pna26.github.io/platform/devops/aws/"/>
+    </url>
+    <url>
+        <loc>https://pna26.github.io/platform/pt/devops/ci-cd/</loc>
+        <lastmod>2026-11-21</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="pt" href="https://pna26.github.io/platform/pt/devops/ci-cd/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://pna26.github.io/platform/devops/ci-cd/"/>
+    </url>
+    <url>
+        <loc>https://pna26.github.io/platform/pt/devops/custos-sla/</loc>
+        <lastmod>2026-11-21</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="pt" href="https://pna26.github.io/platform/pt/devops/custos-sla/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://pna26.github.io/platform/devops/custos-sla/"/>
+    </url>
+    <url>
+        <loc>https://pna26.github.io/platform/pt/devops/eks/</loc>
+        <lastmod>2026-11-21</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="pt" href="https://pna26.github.io/platform/pt/devops/eks/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://pna26.github.io/platform/devops/eks/"/>
+    </url>
+    <url>
+        <loc>https://pna26.github.io/platform/pt/devops/load-testing/</loc>
+        <lastmod>2026-11-21</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="pt" href="https://pna26.github.io/platform/pt/devops/load-testing/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://pna26.github.io/platform/devops/load-testing/"/>
+    </url>
+    <url>
+        <loc>https://pna26.github.io/platform/pt/servicos/account/</loc>
+        <lastmod>2026-11-21</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="pt" href="https://pna26.github.io/platform/pt/servicos/account/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://pna26.github.io/platform/servicos/account/"/>
+    </url>
+    <url>
+        <loc>https://pna26.github.io/platform/pt/servicos/auth/</loc>
+        <lastmod>2026-11-21</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="pt" href="https://pna26.github.io/platform/pt/servicos/auth/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://pna26.github.io/platform/servicos/auth/"/>
+    </url>
+    <url>
+        <loc>https://pna26.github.io/platform/pt/servicos/exchange/</loc>
+        <lastmod>2026-11-21</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="pt" href="https://pna26.github.io/platform/pt/servicos/exchange/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://pna26.github.io/platform/servicos/exchange/"/>
+    </url>
+    <url>
+        <loc>https://pna26.github.io/platform/pt/servicos/gateway/</loc>
+        <lastmod>2026-11-21</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="pt" href="https://pna26.github.io/platform/pt/servicos/gateway/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://pna26.github.io/platform/servicos/gateway/"/>
     </url>
 </urlset>
