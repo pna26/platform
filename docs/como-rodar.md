@@ -1,11 +1,11 @@
-# Como rodar
+# How to run
 
-## Pré-requisitos
+## Prerequisites { #pre-requisitos }
 
-- Git, Java 25 e Maven 3.9+
-- Docker com Docker Compose v2
+- Git, Java 25, and Maven 3.9+
+- Docker with Docker Compose v2
 
-## Localmente (Docker Compose)
+## Locally (Docker Compose) { #localmente-docker-compose }
 
 ``` bash
 git clone --recurse-submodules https://github.com/pna26/platform.git
@@ -16,19 +16,19 @@ docker compose up -d --build  # sobe db, redis, account, auth, exchange, gateway
 ./scripts/smoke-test.sh       # teste ponta a ponta
 ```
 
-A plataforma fica em [http://localhost:8080](http://localhost:8080){target="_blank"}. Só o `lb` (Nginx)
-publica porta; os demais serviços ficam na rede interna do compose. O Grafana
-([http://localhost:3000](http://localhost:3000){target="_blank"}) e o Prometheus (`:9090`) ficam presos ao
-`127.0.0.1` — ver [Observabilidade](bottlenecks/observability.md).
+The platform is available at [http://localhost:8080](http://localhost:8080){target="_blank"}. Only `lb` (Nginx)
+publishes a port; the other services stay on the compose internal network. Grafana
+([http://localhost:3000](http://localhost:3000){target="_blank"}) and Prometheus (`:9090`) are bound to
+`127.0.0.1` — see [Observability](bottlenecks/observability.md).
 
 ``` { .yaml .copy title="compose.yaml" }
 --8<-- "compose.yaml"
 ```
 
-O `.env` é criado pelo `scripts/build.sh` a partir do `.env.example`, com um `JWT_SECRET_KEY` aleatório
-(`openssl rand -base64 32`). Ele nunca vai para o git.
+The `.env` file is created by `scripts/build.sh` from `.env.example`, with a random `JWT_SECRET_KEY`
+(`openssl rand -base64 32`). It never goes into git.
 
-### Exemplo de uso
+### Usage example { #exemplo-de-uso }
 
 ``` bash
 # cadastro e login (o cookie fica no arquivo cookies.txt)
@@ -43,21 +43,21 @@ curl -H "Cookie: __store_jwt_token=$TOKEN" localhost:8080/auth/me
 curl -H "Cookie: __store_jwt_token=$TOKEN" localhost:8080/accounts
 ```
 
-### Smoke test
+### Smoke test { #smoke-test }
 
-O `scripts/smoke-test.sh` é o mesmo que roda no CI (workflow `integration`). Ele confere:
+`scripts/smoke-test.sh` is the same script that runs in CI (`integration` workflow). It checks:
 
-- cadastro, login (cookie `HttpOnly`), `/auth/me`, `/accounts`, `/exchange/USD/BRL` e logout;
-- `401` sem token, com token inválido e com `id-account` forjado;
-- que pelo menos 2 réplicas do gateway responderam (balanceamento);
-- que o token ficou em cache no Redis;
-- que `/gateway/actuator/prometheus` não fica exposto pelo `lb`.
+- sign-up, login (`HttpOnly` cookie), `/auth/me`, `/accounts`, `/exchange/USD/BRL`, and logout;
+- `401` without a token, with an invalid token, and with a forged `id-account`;
+- that at least 2 gateway replicas responded (load balancing);
+- that the token was cached in Redis;
+- that `/gateway/actuator/prometheus` is not exposed through `lb`.
 
 ``` { .bash .copy title="scripts/smoke-test.sh" }
 --8<-- "scripts/smoke-test.sh"
 ```
 
-### Variações úteis
+### Useful variations { #variacoes-uteis }
 
 ``` bash
 docker compose up -d --scale gateway=4      # mais réplicas (o Nginx descobre sozinho)
@@ -66,11 +66,11 @@ docker compose up -d --scale exchange=3                  # mais réplicas do exc
 docker compose down -v                                    # derruba tudo e apaga os volumes
 ```
 
-## No EKS
+## On EKS { #no-eks }
 
-O deploy no EKS é feito pelo pipeline ([CI/CD](devops/ci-cd.md)): cada serviço aplica o seu
-`k8s/` e o repositório `platform` aplica a infra compartilhada (`k8s/lb.yaml` e `k8s/redis.yaml`).
-Para aplicar manualmente:
+Deployment to EKS is done by the pipeline ([CI/CD](devops/ci-cd.md)): each service applies its own
+`k8s/` and the `platform` repository applies the shared infrastructure (`k8s/lb.yaml` and `k8s/redis.yaml`).
+To apply it manually:
 
 ``` bash
 aws eks update-kubeconfig --name <cluster> --region <região>

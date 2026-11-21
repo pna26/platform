@@ -1,81 +1,87 @@
-# Cache da cotação (Exchange)
+# Exchange rate cache (Exchange)
 
-!!! info "Responsável: Gabriel"
+!!! info "Owner: Gabriel"
 
-## Problema
+!!! note "Provider"
 
-O Exchange depende de uma **API de terceiros** (AwesomeAPI). Sem cache, toda requisição
-`GET /exchange/USD/BRL` vira uma chamada HTTP para fora da nossa rede:
+    The measurements on this page were taken with AwesomeAPI. Since 20/11 the default provider is the
+    Central Bank of Brazil's PTAX ([Exchange](../servicos/exchange.md)); the cache (30 s TTL, per-pair lock
+    and *stale-if-error*) is the same and still needed: PTAX is a public service, never load-test it.
 
-- a **latência** de um serviço que não controlamos (dezenas a centenas de ms, às vezes segundos) entra
-  no caminho de toda requisição;
-- a API gratuita tem **limite de requisições**: sob carga ela passa a responder `429`, e aí o Exchange
-  cai para **todos** os usuários, não só para quem gerou a carga;
-- se a API externa sai do ar, o Exchange sai junto.
+## Problem { #problema }
 
-É o mesmo padrão do [cache do token](cache.md) no gateway, mas o gargalo aqui está fora da plataforma.
+Exchange depends on a **third-party API** (AwesomeAPI). Without a cache, every
+`GET /exchange/USD/BRL` request turns into an HTTP call outside our network:
 
-## Solução
+- the **latency** of a service we do not control (tens to hundreds of ms, sometimes seconds) lands
+  on the path of every request;
+- the free API has a **rate limit**: under load it starts responding `429`, and then Exchange
+  goes down for **all** users, not just for whoever generated the load;
+- if the external API goes down, Exchange goes down with it.
 
-Cache **em memória** no próprio Exchange, por par de moedas:
+It is the same pattern as the [token cache](cache.md) in the gateway, but here the bottleneck is outside the platform.
+
+## Solution { #solucao }
+
+**In-memory** cache inside Exchange itself, per currency pair:
 
 ``` mermaid
 flowchart LR
-    r["N requisições<br/>USD → BRL"] --> ex[exchange]
-    ex -->|"cotação com &lt; 30 s?"| hit{hit}
-    hit -->|sim| resp([resposta])
-    hit -->|não| lock["lock do par<br/>(só 1 busca)"]
-    lock -->|"1 chamada"| api([AwesomeAPI])
-    api -->|ok| save["guarda no cache"] --> resp
-    api -->|"falha / 429"| stale{"cotação de<br/>&lt; 10 min?"}
-    stale -->|sim| resp
-    stale -->|não| e503([503])
+    r["N requests<br/>USD → BRL"] --> ex[exchange]
+    ex -->|"quote &lt; 30 s old?"| hit{hit}
+    hit -->|yes| resp([response])
+    hit -->|no| lock["pair lock<br/>(only 1 fetch)"]
+    lock -->|"1 call"| api([AwesomeAPI])
+    api -->|ok| save["store in cache"] --> resp
+    api -->|"failure / 429"| stale{"quote<br/>&lt; 10 min old?"}
+    stale -->|yes| resp
+    stale -->|no| e503([503])
 ```
 
-| Decisão | Motivo |
+| Decision | Reason |
 |---|---|
-| TTL de **30 s** (`CACHE_TTL`) | Cotação de 30 s atrás é aceitável para uma loja; com isso cada réplica faz no máximo 2 chamadas/min por par, independente da carga. |
-| Memória do processo, não Redis | São poucos pares (cardinalidade minúscula) e o dado é público: perder o cache num restart custa 1 chamada. Um Redis compartilhado economizaria só `réplicas − 1` chamadas a cada 30 s. |
-| **Um lock por par** | Quando o cache expira com 200 usuários pedindo USD-BRL ao mesmo tempo, só **uma** requisição chama a API e as outras esperam e leem o cache (evita *cache stampede*). |
-| ***Stale-if-error*** por até 10 min (`CACHE_STALE_TTL`) | Se a API externa falhar ou devolver `429`, servimos a última cotação conhecida em vez de `503`. |
-| Par inexistente (`404`) **não** vai para o cache | Não guarda erro do cliente. |
-| Timeout de 3 s na chamada externa | Uma API lenta não prende as conexões do Exchange indefinidamente. |
-| `CACHE_TTL=0` desliga | Para comparar no [teste de carga](../devops/load-testing.md). |
+| **30 s** TTL (`CACHE_TTL`) | A 30-second-old quote is acceptable for a store; this way each replica makes at most 2 calls/min per pair, regardless of load. |
+| Process memory, not Redis | There are few pairs (tiny cardinality) and the data is public: losing the cache on a restart costs 1 call. A shared Redis would only save `replicas − 1` calls every 30 s. |
+| **One lock per pair** | When the cache expires with 200 users asking for USD-BRL at the same time, only **one** request calls the API and the others wait and read the cache (avoids *cache stampede*). |
+| ***Stale-if-error*** for up to 10 min (`CACHE_STALE_TTL`) | If the external API fails or returns `429`, we serve the last known quote instead of `503`. |
+| Nonexistent pair (`404`) does **not** go into the cache | Client errors are not cached. |
+| 3 s timeout on the external call | A slow API does not hold Exchange's connections indefinitely. |
+| `CACHE_TTL=0` turns it off | For comparison in the [load test](../devops/load-testing.md). |
 
-## Código
+## Code { #codigo }
 
 ``` { .python .copy linenums="1" title="app/cache.py" }
 --8<-- "api/exchange-service/app/cache.py"
 ```
 
-## Como verificar
+## How to verify { #como-verificar }
 
-Os testes do serviço provam o comportamento sem depender da API real (`tests/test_cache.py`):
+The service's tests prove the behavior without depending on the real API (`tests/test_cache.py`):
 
-| Teste | Resultado esperado |
+| Test | Expected result |
 |---|---|
-| 50 requisições seguidas a `/exchange/USD/BRL` | **1** chamada à API externa |
-| 100 requisições **simultâneas** com o cache vazio | **1** chamada à API externa |
-| API fora do ar 2 min depois da última cotação | `200` com a cotação anterior (*stale*) |
-| API fora do ar 11 min depois | `503` |
+| 50 consecutive requests to `/exchange/USD/BRL` | **1** call to the external API |
+| 100 **concurrent** requests with an empty cache | **1** call to the external API |
+| API down 2 min after the last quote | `200` with the previous quote (*stale*) |
+| API down 11 min later | `503` |
 
-Na plataforma rodando, a métrica `exchange_quote_cache_total{result="hit|miss|stale|error"}` mostra a
-taxa de acerto no Grafana ([Observabilidade](observability.md)).
+With the platform running, the metric `exchange_quote_cache_total{result="hit|miss|stale|error"}` shows the
+hit rate in Grafana ([Observability](observability.md)).
 
-## Resultados
+## Results { #resultados }
 
-Medidos em 05/11/2026 pelo [teste de carga](../devops/load-testing.md) (experimento 3: 10 usuários,
-30 s, `GET /exchange/USD/BRL` e `EUR/BRL` pelo `lb` → gateway → exchange, com a AwesomeAPI real):
+Measured on 05/11/2026 by the [load test](../devops/load-testing.md) (experiment 3: 10 users,
+30 s, `GET /exchange/USD/BRL` and `EUR/BRL` through `lb` → gateway → exchange, against the real AwesomeAPI):
 
-| `EXCHANGE_CACHE_TTL` | Requisições | p50 | p95 | p99 | Erros |
+| `EXCHANGE_CACHE_TTL` | Requests | p50 | p95 | p99 | Errors |
 |---|---:|---:|---:|---:|---:|
-| `0` (sem cache) | 445 | 23 ms | 49 ms | 69 ms | 0 % |
-| `30` (com cache) | 454 | **3 ms** | **4 ms** | 17 ms | 0 % |
+| `0` (no cache) | 445 | 23 ms | 49 ms | 69 ms | 0 % |
+| `30` (with cache) | 454 | **3 ms** | **4 ms** | 17 ms | 0 % |
 
-O p95 cai **92 %**: sem cache, a latência de toda cotação é a da API externa; com cache, só a primeira
-cotação de cada par a cada 30 s paga essa latência. O ganho maior não aparece na tabela: sem cache, a
-API externa recebeu ≈ 7 chamadas por segundo de só 10 usuários; com cache, recebe no máximo 2 por
-minuto por par e por réplica, independente da carga — longe do limite de requisições da API gratuita.
+p95 drops by **92%**: without cache, the latency of every quote is that of the external API; with cache, only the first
+quote of each pair every 30 s pays that latency. The biggest gain does not show in the table: without cache, the
+external API received ≈ 7 calls per second from just 10 users; with cache, it receives at most 2 per
+minute per pair and per replica, regardless of load — far from the free API's rate limit.
 
-Antes, rodando o serviço sozinho contra a API real: primeira consulta de `USD/BRL` em 60 ms (chamada
-externa), a seguinte em **1,5 ms** (cache).
+Earlier, running the service on its own against the real API: the first `USD/BRL` lookup took 60 ms (external
+call), the next one **1.5 ms** (cache).

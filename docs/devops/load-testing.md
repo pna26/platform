@@ -1,51 +1,51 @@
-# Testes de carga
+# Load testing
 
-!!! info "Responsável: Gabriel"
+!!! info "Owner: Gabriel"
 
-Ferramenta: **[k6](https://k6.io){target="_blank"}** (Grafana Labs), rodando em container — ninguém do
-grupo precisa instalar nada além do Docker. Escolhemos o k6 em vez do JMeter/Locust porque o teste é
-um arquivo JavaScript versionado no repositório, os limites de aceitação (*thresholds*) ficam no
-próprio script e ele envia as métricas direto para o Prometheus, então a carga aparece no mesmo
-[dashboard do Grafana](../bottlenecks/observability.md) que as métricas do servidor.
+Tool: **[k6](https://k6.io){target="_blank"}** (Grafana Labs), running in a container — nobody in the
+group needs to install anything besides Docker. We chose k6 over JMeter/Locust because the test is
+a JavaScript file versioned in the repository, the acceptance limits (*thresholds*) live in the
+script itself, and it sends metrics straight to Prometheus, so the load shows up in the same
+[Grafana dashboard](../bottlenecks/observability.md) as the server metrics.
 
-## O que é testado
+## What is tested { #o-que-e-testado }
 
 ``` mermaid
 flowchart LR
-    k6([k6<br/>N usuários virtuais]) ==> lb[lb · Nginx] ==> gw["gateway<br/>(1, 2 ou 4 réplicas)"]
+    k6([k6<br/>N virtual users]) ==> lb[lb · Nginx] ==> gw["gateway<br/>(1, 2 or 4 replicas)"]
     gw <-->|token| redis[(Redis)]
     gw --> auth & account & exchange
     exchange -->|miss| api([AwesomeAPI])
     k6 -.->|remote write| prom[(Prometheus)] --> graf[Grafana]
 ```
 
-O `setup()` do script cria 20 contas e faz login uma vez; depois os usuários virtuais (VUs) reaproveitam
-os tokens, como usuários reais navegando logados. Cada VU espera 0,5–1,5 s entre as ações.
+The script's `setup()` creates 20 accounts and logs in once; after that the virtual users (VUs) reuse
+the tokens, like real users browsing while logged in. Each VU waits 0.5–1.5 s between actions.
 
-| Cenário | Requisições | O que exercita |
+| Scenario | Requests | What it exercises |
 |---|---|---|
-| `auth` | `GET /auth/me` + `GET /accounts/{id}` | validação do token (Redis ou Auth), balanceamento, Account + PostgreSQL |
-| `exchange` | `GET /exchange/USD/BRL` (80 %) e `EUR/BRL` | gateway → Exchange → cache da cotação / API externa |
-| `login` | `POST /auth/login` | caminho caro: hash da senha + emissão do JWT |
-| `mixed` | 80 % leitura autenticada, 15 % câmbio, 5 % login | uso "real" da loja |
+| `auth` | `GET /auth/me` + `GET /accounts/{id}` | token validation (Redis or Auth), load balancing, Account + PostgreSQL |
+| `exchange` | `GET /exchange/USD/BRL` (80 %) and `EUR/BRL` | gateway → Exchange → quote cache / external API |
+| `login` | `POST /auth/login` | expensive path: password hash + JWT issuance |
+| `mixed` | 80 % authenticated reads, 15 % exchange, 5 % login | "real" store usage |
 
-| Perfil | Forma da carga | Pergunta que responde |
+| Profile | Load shape | Question it answers |
 |---|---|---|
-| `smoke` | 1 VU, 20 s | O script e a plataforma funcionam? |
-| `load` | sobe em 20 s até `VUS`, mantém por `DURATION`, desce | Aguenta a carga esperada dentro do SLO? |
-| `stress` | `VUS` → ×2 → ×4 → ×8, 30 s cada | Onde quebra? Qual componente satura primeiro? |
-| `spike` | `VUS/10` → pico de `VUS×4` em 5 s → volta | Aguenta um pico repentino e se recupera? |
+| `smoke` | 1 VU, 20 s | Do the script and the platform work? |
+| `load` | ramps up to `VUS` in 20 s, holds for `DURATION`, ramps down | Does it handle the expected load within the SLO? |
+| `stress` | `VUS` → ×2 → ×4 → ×8, 30 s each | Where does it break? Which component saturates first? |
+| `spike` | `VUS/10` → spike to `VUS×4` in 5 s → back | Does it handle a sudden spike and recover? |
 
-**Critérios de aceitação** (os mesmos do [SLO](custos-sla.md#sla-e-slo)), checados pelo k6 — ele sai
-com código `99` se algum estourar:
+**Acceptance criteria** (the same as the [SLO](custos-sla.md#sla-e-slo)), checked by k6 — it exits
+with code `99` if any of them is exceeded:
 
-| Métrica | Limite |
+| Metric | Limit |
 |---|---|
-| Erros (`http_req_failed`) | < 1 % |
-| Latência p95 / p99 (respostas esperadas) | < 500 ms / < 1500 ms |
-| `checks` (status e conteúdo das respostas) | > 99 % |
+| Errors (`http_req_failed`) | < 1 % |
+| p95 / p99 latency (expected responses) | < 500 ms / < 1500 ms |
+| `checks` (response status and content) | > 99 % |
 
-## Como rodar
+## How to run { #como-rodar }
 
 ``` bash
 ./scripts/build.sh && docker compose up -d --build     # plataforma + Prometheus + Grafana
@@ -59,132 +59,134 @@ BASE_URL=http://<endereço-do-elb> ./scripts/load-test.sh   # contra o EKS
 ./scripts/load-matrix.sh        # todos os experimentos abaixo (~25 min) -> load/results/RESULTS.md
 ```
 
-Enquanto roda, abra o Grafana em [http://localhost:3000](http://localhost:3000){target="_blank"}: a
-linha **Teste de carga (k6)** mostra VUs, req/s e p95/p99 do cliente, e as linhas de cima mostram o
-que acontece em cada réplica, no Redis e no Exchange no mesmo instante.
+While it runs, open Grafana at [http://localhost:3000](http://localhost:3000){target="_blank"}: the
+**Teste de carga (k6)** row shows VUs, req/s and client-side p95/p99, and the rows above show what
+happens in each replica, in Redis and in Exchange at the same moment.
 
-## Experimentos
+## Experiments { #experimentos }
 
-O `scripts/load-matrix.sh` muda **uma** variável por vez e mantém o resto igual (cache do Redis
-esvaziado antes de cada rodada):
+`scripts/load-matrix.sh` changes **one** variable at a time and keeps everything else the same (Redis
+cache flushed before each run):
 
-| # | Experimento | Variável | Cenário / perfil | Hipótese |
+| # | Experiment | Variable | Scenario / profile | Hypothesis |
 |---|---|---|---|---|
-| 1 | Cache do token | `TOKEN_CACHE_ENABLED` = `false` × `true` | `auth` / `load` | Sem cache, cada requisição chama o Auth: mais carga no Auth e latência maior quando ele satura. Com cache, `gateway_token_cache_total{result="miss"}` fica perto de 20 (um por usuário). |
-| 2 | Réplicas do gateway | `GATEWAY_REPLICAS` = 1 × 2 × 4 | `auth` / `stress` | Mais réplicas atrasam o ponto em que o p95 estoura — **até** o gargalo passar para outro componente (Account/PostgreSQL ou a própria CPU da máquina). |
-| 3 | Cache da cotação | `EXCHANGE_CACHE_TTL` = `0` × `30` | `exchange` / `load`, 10 VUs, 30 s | Sem cache, a latência do Exchange é a da API externa e aparecem `429`; com cache, ~1 chamada externa a cada 30 s por réplica. Poucos VUs de propósito: não queremos martelar um serviço de terceiros. |
-| 4 | Uso real | configuração padrão | `mixed` / `load` | Dentro do SLO. |
-| 5 | Saturação | `GATEWAY_REPLICAS` = 1 × 4, **`THINK=0`** (sem pausa) | `auth` / `stress` até 200 VUs | Com pausa, o experimento 2 não chega ao limite; sem pausa, cada VU dispara o mais rápido possível e mostra o que quebra primeiro. |
+| 1 | Token cache | `TOKEN_CACHE_ENABLED` = `false` × `true` | `auth` / `load` | Without cache, every request calls Auth: more load on Auth and higher latency when it saturates. With cache, `gateway_token_cache_total{result="miss"}` stays close to 20 (one per user). |
+| 2 | Gateway replicas | `GATEWAY_REPLICAS` = 1 × 2 × 4 | `auth` / `stress` | More replicas delay the point where p95 blows up — **until** the bottleneck moves to another component (Account/PostgreSQL or the machine's own CPU). |
+| 3 | Quote cache | `EXCHANGE_CACHE_TTL` = `0` × `30` | `exchange` / `load`, 10 VUs, 30 s | Without cache, Exchange latency is the external API's and `429`s show up; with cache, ~1 external call every 30 s per replica. Few VUs on purpose: we don't want to hammer a third-party service. |
+| 4 | Real usage | default configuration | `mixed` / `load` | Within the SLO. |
+| 5 | Saturation | `GATEWAY_REPLICAS` = 1 × 4, **`THINK=0`** (no pause) | `auth` / `stress` up to 200 VUs | With pauses, experiment 2 never reaches the limit; without pauses, each VU fires as fast as possible and shows what breaks first. |
 
-## Resultados
+## Results { #resultados }
 
-Medidos em **05/11/2026** com `./scripts/load-matrix.sh` (os experimentos 3 e 5 foram rodados de novo
-com `ONLY="3 5"`). Máquina: Windows 11 + Docker Desktop (WSL2), 12 CPUs lógicas, 7,3 GiB de RAM para
-o Docker. **k6, Nginx, gateway, serviços, banco, Prometheus e Grafana na mesma máquina.** Latências
-só das respostas esperadas e só da fase de teste (o cadastro/login do `setup()` fica de fora).
+Measured on **05/11/2026** with `./scripts/load-matrix.sh` (experiments 3 and 5 were run again
+with `ONLY="3 5"`). Machine: Windows 11 + Docker Desktop (WSL2), 12 logical CPUs, 7.3 GiB of RAM for
+Docker. **k6, Nginx, gateway, services, database, Prometheus and Grafana on the same machine.** Latencies
+only for expected responses and only for the test phase (the sign-up/login in `setup()` is excluded).
 
-| Execução | Cenário | Perfil | VUs máx. | Requisições | req/s | p50 (ms) | p95 (ms) | p99 (ms) | Erros |
+| Run | Scenario | Profile | Max VUs | Requests | req/s | p50 (ms) | p95 (ms) | p99 (ms) | Errors |
 |---|---|---|---:|---:|---:|---:|---:|---:|---:|
-| token-cache-off | auth | load | 50 | 7.416 | 80,8 | 5 | 12 | 20 | 0,00 % |
-| token-cache-on | auth | load | 50 | 7.448 | 79,7 | 4 | **7** | 15 | 0,00 % |
-| replicas-1 | auth | stress | 400 | 41.110 | 290,9 | 2 | 3 | 4 | 0,00 % |
-| replicas-2 | auth | stress | 400 | 40.810 | 287,1 | 2 | 17 | 114 | 0,00 % |
-| replicas-4 | auth | stress | 400 | 40.918 | 285,8 | 3 | 7 | 23 | 0,00 % |
-| exchange-cache-off | exchange | load | 10 | 445 | 7,3 | 23 | 49 | 69 | 0,00 % |
-| exchange-cache-on | exchange | load | 10 | 454 | 7,5 | 3 | **4** | 17 | 0,00 % |
-| mixed-load | mixed | load | 50 | 6.605 | 72,1 | 4 | 62 | 197 | 0,00 % |
-| saturation-1 | auth | stress, `THINK=0` | 200 | 578.564 | **4.120** | 13 | 43 | 69 | **0,57 %** |
-| saturation-4 | auth | stress, `THINK=0` | 200 | 387.296 | 2.697 | 14 | 88 | 166 | **0,00 %** |
+| token-cache-off | auth | load | 50 | 7,416 | 80.8 | 5 | 12 | 20 | 0.00 % |
+| token-cache-on | auth | load | 50 | 7,448 | 79.7 | 4 | **7** | 15 | 0.00 % |
+| replicas-1 | auth | stress | 400 | 41,110 | 290.9 | 2 | 3 | 4 | 0.00 % |
+| replicas-2 | auth | stress | 400 | 40,810 | 287.1 | 2 | 17 | 114 | 0.00 % |
+| replicas-4 | auth | stress | 400 | 40,918 | 285.8 | 3 | 7 | 23 | 0.00 % |
+| exchange-cache-off | exchange | load | 10 | 445 | 7.3 | 23 | 49 | 69 | 0.00 % |
+| exchange-cache-on | exchange | load | 10 | 454 | 7.5 | 3 | **4** | 17 | 0.00 % |
+| mixed-load | mixed | load | 50 | 6,605 | 72.1 | 4 | 62 | 197 | 0.00 % |
+| saturation-1 | auth | stress, `THINK=0` | 200 | 578,564 | **4,120** | 13 | 43 | 69 | **0.57 %** |
+| saturation-4 | auth | stress, `THINK=0` | 200 | 387,296 | 2,697 | 14 | 88 | 166 | **0.00 %** |
 
-**Todos os cenários com pausa (1–4) ficaram dentro do SLO** (erros < 1 %, p95 < 500 ms, p99 < 1,5 s).
+**All scenarios with pauses (1–4) stayed within the SLO** (errors < 1 %, p95 < 500 ms, p99 < 1.5 s).
 
-### O que os números mostram
+### What the numbers show { #o-que-os-numeros-mostram }
 
-**1. Cache do token (Redis) — o Auth sai do caminho.** Com o cache ligado, o Prometheus registrou
-**7.571 hits e 21 misses** em `gateway_token_cache_total` durante a rodada: 99,7 % das validações não
-chamaram o Auth (os 21 misses são ≈ 1 por usuário do teste). Sem cache, todas as ≈ 7.400 requisições
-passaram pelo `POST /auth/solve`. A latência caiu de p95 12 → **7 ms** (−42 %). A vazão é a mesma nas
-duas rodadas porque quem dita o ritmo é a pausa dos usuários, não o servidor.
+**1. Token cache (Redis) — Auth leaves the path.** With the cache on, Prometheus recorded
+**7,571 hits and 21 misses** in `gateway_token_cache_total` during the run: 99.7 % of validations did not
+call Auth (the 21 misses are ≈ 1 per test user). Without cache, all ≈ 7,400 requests
+went through `POST /auth/solve`. Latency dropped from p95 12 → **7 ms** (−42 %). Throughput is the same in
+both runs because the pace is set by the users' pauses, not by the server.
 
-**2. Cache da cotação — a API externa sai do caminho.** Sem cache, toda cotação ia até a AwesomeAPI:
-p50 de 23 ms e p95 de 49 ms, a latência de um serviço de terceiros. Com o cache de 30 s, p50 de **3 ms** e
-p95 de **4 ms** (−92 %). Em 10 usuários a API externa aguentou sem `429`, mas o volume de chamadas a ela
-cai de ≈ 7 por segundo para 1 a cada 30 s por réplica — é isso que protege do limite de requisições.
+**2. Quote cache — the external API leaves the path.** Without cache, every quote went to AwesomeAPI:
+p50 of 23 ms and p95 of 49 ms, the latency of a third-party service. With the 30 s cache, p50 of **3 ms** and
+p95 of **4 ms** (−92 %). At 10 users the external API held up without `429`, but the volume of calls to it
+drops from ≈ 7 per second to 1 every 30 s per replica — that is what protects against the rate limit.
 
-**3. Réplicas com carga "realista" — um gateway sobra.** Com a pausa entre ações, 400 usuários geram
-≈ 290 req/s, e uma réplica só responde com p95 de 3 ms. As diferenças entre 1, 2 e 4 réplicas
-(3 / 17 / 7 ms) são ruído de JVMs recém-criadas (ainda sem o JIT aquecido), não ganho nem perda.
-Conclusão honesta: **nessa carga o gateway não é o gargalo**; o motivo para ter 2+ réplicas é
-disponibilidade (uma pode cair), não capacidade.
+**3. Replicas under "realistic" load — one gateway is plenty.** With the pause between actions, 400 users generate
+≈ 290 req/s, and a single replica answers with p95 of 3 ms. The differences between 1, 2 and 4 replicas
+(3 / 17 / 7 ms) are noise from freshly started JVMs (JIT not yet warmed up), neither gain nor loss.
+Honest conclusion: **at this load the gateway is not the bottleneck**; the reason to have 2+ replicas is
+availability (one can go down), not capacity.
 
-**4. Saturação — achamos o gargalo real, e não era o gateway.** Sem pausa, a plataforma passou de
-**4.100 req/s** com uma réplica do gateway, mas **0,57 % das requisições falharam (3.279)**, todas em
-`GET /auth/me`, nenhuma em `GET /accounts/{id}`. O gateway devolveu `500` e o log do Auth mostrou
-exatamente **3.279 × `java.net.BindException: Cannot assign requested address`**:
+**4. Saturation — we found the real bottleneck, and it was not the gateway.** Without pauses, the platform exceeded
+**4,100 req/s** with one gateway replica, but **0.57 % of requests failed (3,279)**, all on
+`GET /auth/me`, none on `GET /accounts/{id}`. The gateway returned `500` and the Auth log showed
+exactly **3,279 × `java.net.BindException: Cannot assign requested address`**:
 
 ``` mermaid
 flowchart LR
     gw[gateway] -->|"GET /auth/me"| auth[Auth]
-    auth -->|"Feign: 1 conexão TCP nova<br/>por chamada (sem pool)"| acc[Account]
-    auth -.-x|"portas efêmeras<br/>esgotadas → 500"| acc
+    auth -->|"Feign: 1 new TCP connection<br/>per call (no pool)"| acc[Account]
+    auth -.-x|"ephemeral ports<br/>exhausted → 500"| acc
 ```
 
-O `GET /auth/me` do Auth chama o Account pelo **OpenFeign com o cliente HTTP padrão, sem pool de
-conexões**: cada requisição abre uma conexão TCP nova, e a 4.000 req/s as portas locais do container do
-Auth acabam (as fechadas ficam em `TIME_WAIT`). Com 4 réplicas do gateway a máquina ficou mais
-ocupada (CPU em ≈ 83 % nas duas rodadas, 4 JVMs disputando os mesmos núcleos), a vazão caiu para
-2.697 req/s e o Auth não chegou no limite — por isso 0 erros, mas p95 o dobro.
+Auth's `GET /auth/me` calls Account via **OpenFeign with the default HTTP client, without a connection
+pool**: each request opens a new TCP connection, and at 4,000 req/s the local ports of the Auth container
+run out (closed ones stay in `TIME_WAIT`). With 4 gateway replicas the machine was busier
+(CPU at ≈ 83 % in both runs, 4 JVMs competing for the same cores), throughput dropped to
+2,697 req/s and Auth did not reach the limit — hence 0 errors, but twice the p95.
 
-!!! tip "Correção sugerida (Auth — Nicolas)"
+!!! tip "Suggested fix (Auth — Nicolas)"
 
-    Trocar o cliente do Feign por um com **pool de conexões** e keep-alive — adicionar
-    `io.github.openfeign:feign-hc5` ao `auth-service` e `spring.cloud.openfeign.httpclient.hc5.enabled=true`.
-    Com conexões reaproveitadas, o Auth deixa de abrir uma porta por requisição. Depois, repetir
-    `ONLY=5 ./scripts/load-matrix.sh` para confirmar que os `500` somem.
+    Replace the Feign client with one that has a **connection pool** and keep-alive — add
+    `io.github.openfeign:feign-hc5` to `auth-service` and `spring.cloud.openfeign.httpclient.hc5.enabled=true`.
+    With reused connections, Auth stops opening one port per request. Then rerun
+    `ONLY=5 ./scripts/load-matrix.sh` to confirm the `500`s are gone.
 
-**5. Uso real (`mixed`).** Dentro do SLO, mas com a cauda mais longa da bateria (p95 62 ms, p99 197 ms):
-5 % das ações são `POST /auth/login`, que faz o hash da senha (custoso de propósito) e emite o JWT.
+**5. Real usage (`mixed`).** Within the SLO, but with the longest tail of the batch (p95 62 ms, p99 197 ms):
+5 % of the actions are `POST /auth/login`, which hashes the password (expensive on purpose) and issues the JWT.
 
-### Limitações
+### Limitations { #limitacoes }
 
-- **Tudo na mesma máquina:** o k6 disputa CPU com a plataforma. Os números mostram **tendências e
-  gargalos**, não a capacidade do EKS. Em nós separados, mais réplicas devem *aumentar* a vazão —
-  aqui ficaram presas à mesma CPU.
-- **Rodadas curtas (1–3 min) e uma execução por configuração:** diferenças de poucos ms são ruído.
-- **20 contas reutilizadas:** favorece o cache do token (é o padrão de uso logado, mas um teste com
-  milhares de usuários novos teria mais misses).
+- **Everything on the same machine:** k6 competes for CPU with the platform. The numbers show **trends and
+  bottlenecks**, not the EKS capacity. On separate nodes, more replicas should *increase* throughput —
+  here they were stuck on the same CPU.
+- **Short runs (1–3 min) and one execution per configuration:** differences of a few ms are noise.
+- **20 reused accounts:** favors the token cache (it is the logged-in usage pattern, but a test with
+  thousands of new users would have more misses).
 
-Para medir a capacidade real: `BASE_URL=http://<elb> ./scripts/load-test.sh` a partir de outra máquina.
+To measure real capacity: `BASE_URL=http://<elb> ./scripts/load-test.sh` from another machine.
 
-## Teste no EKS com HPA
+## EKS test with HPA { #teste-no-eks-com-hpa }
 
-O curso pede um **vídeo do teste de carga em execução com o HPA escalando**. Roteiro para o dia do EKS:
-k6 rodando da máquina de um integrante contra o ELB, e o **Horizontal Pod Autoscaler** criando réplicas
-do gateway quando a CPU média passa de 50 % do `request` (250m → 125m por pod).
+The course asks for a **video of the load test running with the HPA scaling**. Plan for the EKS run:
+k6 running from a member's machine against the ELB, and the **Horizontal Pod Autoscaler** creating gateway
+replicas when average CPU exceeds 50 % of the `request` (250m → 125m per pod).
 
-!!! warning "Antes de começar"
+!!! warning "Before you start"
 
-    - **kubectl 1.36 ou mais novo** (`kubectl version --client`): o cluster é 1.37 e o kubectl só tem
-      suporte com até uma versão de diferença. O `--cpu=50%` do terminal 1 não existe antes do 1.34
+    - **kubectl 1.36 or newer** (`kubectl version --client`): the cluster is 1.37 and kubectl is only
+      supported within one version of skew. The `--cpu=50%` in terminal 1 does not exist before 1.34
       (`unknown flag: --cpu`).
-    - **metrics-server** instalado no cluster (o EKS não traz, e o `eks-store.yaml` não instala; sem ele o
-      HPA fica em `<unknown>`). Instalar e conferir:
+    - **metrics-server** installed in the cluster (EKS does not ship it, and `eks-store.yaml` does not install it; without it the
+      HPA stays at `<unknown>`). Install and check:
       `kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml`
-      e, depois de ≈ 1 min, `kubectl top nodes`.
-    - **Cenário `auth`, não `exchange` nem `mixed`:** a AwesomeAPI devolveu `429` para o IP da AWS, então
-      o Exchange responde `503` no EKS (o `mixed` tem 15 % de câmbio: sairiam ≈ 15 % de erro).
-    - **Ninguém faz push na `main` durante a gravação:** o deploy do CI faz `kubectl apply` do manifesto
-      do gateway (`replicas: 2`) e briga com o HPA.
-    - **Capacidade:** os 2 nós fixos têm espaço para **mais ≈ 6 réplicas do gateway** (conta em
-      [Custos](custos-sla.md#o-que-precisa-rodar)), 8 no total. Com `--max=10`, as réplicas 9 e 10 ficariam
-      *Pending*. O roteiro usa `--max=6` para ter folga: a sobra está dividida entre os 2 nós (≈ 0,8 vCPU
-      em cada) e um pod não usa pedaços de nós diferentes, então a 7ª e a 8ª podem não caber. Se o grupo
-      preferir mostrar o limite, `--max=10` e os *Pending* viram parte do resultado.
-    - **Mais de uma tomada:** antes de repetir o teste, `kubectl rollout restart deployment/auth
-      deployment/account -n store`. No ensaio, o Auth foi morto por falta de memória na segunda rodada
-      pesada seguida ([achado](#achado-oom-auth)).
+      and, after ≈ 1 min, `kubectl top nodes`.
+    - **`auth` scenario, not `exchange` or `mixed`:** AwesomeAPI returned `429` to the AWS IP, so
+      Exchange answers `503` on EKS (`mixed` has 15 % exchange: that would give ≈ 15 % errors). With exchange
+      on BACEN's PTAX ([Exchange](../servicos/exchange.md)) the exchange rate no longer depends on AwesomeAPI, but PTAX
+      is a public service: only with the cache on, no load testing against it.
+    - **Nobody pushes to `main` during the recording:** the CI deploy runs `kubectl apply` on the gateway
+      manifest (`replicas: 2`) and fights with the HPA.
+    - **Capacity:** the 2 fixed nodes have room for **≈ 6 more gateway replicas** (math in
+      [Costs](custos-sla.md#o-que-precisa-rodar)), 8 in total. With `--max=10`, replicas 9 and 10 would stay
+      *Pending*. The plan uses `--max=6` to leave headroom: the spare capacity is split between the 2 nodes (≈ 0.8 vCPU
+      on each) and a pod cannot use pieces of different nodes, so the 7th and 8th may not fit. If the group
+      prefers to show the limit, use `--max=10` and the *Pending* pods become part of the result.
+    - **More than one take:** before repeating the test, `kubectl rollout restart deployment/auth
+      deployment/account -n store`. In the rehearsal, Auth was killed for running out of memory on the second heavy run
+      in a row ([finding](#achado-oom-auth)).
 
-**Três terminais lado a lado** (no Windows não existe `watch`; o `-w` do `kubectl` faz o mesmo):
+**Three terminals side by side** (Windows has no `watch`; `kubectl`'s `-w` does the same):
 
 === "1 · HPA"
 
@@ -195,7 +197,7 @@ do gateway quando a CPU média passa de 50 % do `request` (250m → 125m por pod
     # com aviso); num kubectl 1.33 ou anterior, só o --cpu-percent=50 funciona
     ```
 
-=== "2 · Pods do gateway"
+=== "2 · Gateway pods"
 
     ``` bash
     kubectl get pods -n store -l app=gateway -o wide -w
@@ -212,51 +214,52 @@ do gateway quando a CPU média passa de 50 % do `request` (250m → 125m por pod
       NAME=eks-hpa SCENARIO=auth PROFILE=load VUS=100 DURATION=4m THINK=0 ./scripts/load-test.sh
     ```
 
-`--min=2` porque o manifesto do gateway já sobe 2 réplicas: com `--min=1` o HPA derrubaria uma logo no
-começo do vídeo. O HPA olha a CPU a cada 15 s e o metrics-server tem até ≈ 1 min de atraso, por isso o
-platô tem 4 min. Depois do teste, o HPA espera **5 min** sem carga antes de reduzir as réplicas: dá
-para continuar gravando e mostrar a volta para 2.
+`--min=2` because the gateway manifest already starts 2 replicas: with `--min=1` the HPA would remove one right at the
+start of the video. The HPA checks CPU every 15 s and metrics-server lags up to ≈ 1 min, hence the
+4 min plateau. After the test, the HPA waits **5 min** without load before scaling down: you can
+keep recording and show it going back to 2.
 
-**Print do Grafana durante o teste** (página de [Observabilidade](../bottlenecks/observability.md)):
-`kubectl port-forward svc/grafana 3000 -n store`, dashboard *Store — plataforma*. O painel
-"Réplicas no ar ao longo do tempo (HPA)" mostra a subida e a volta para 2; "Requisições/s por réplica"
-e "CPU por réplica" mostram as réplicas novas entrando e dividindo a carga.
+**Grafana screenshot during the test** ([Observability](../bottlenecks/observability.md) page):
+`kubectl port-forward svc/grafana 3000 -n store`, dashboard *Store — plataforma*. The panel
+"Réplicas no ar ao longo do tempo (HPA)" shows the scale-up and the return to 2; "Requisições/s por réplica"
+and "CPU por réplica" show the new replicas joining and sharing the load.
 
-**Gravar sem depender de janela:** o `scripts/hpa-record.py` ([código](#codigo)) roda os três
-terminais acima, grava o vídeo e tira os prints do Grafana sozinho (detalhes no
-[ensaio local](#ensaio-local-kind)):
+**Recording without depending on a window:** `scripts/eks-hpa.sh` does everything at once ([EKS result](#resultado-no-eks)).
+Under the hood, `scripts/hpa-record.py` ([code](#codigo)) runs the three
+terminals above, records the video and takes the Grafana screenshots by itself (details in the
+[local rehearsal](#ensaio-local-kind)):
 
 ``` bash
 pip install playwright imageio-ffmpeg pillow    # uma vez; usa o Edge instalado
 python scripts/hpa-record.py --base-url http://$ELB --name eks-hpa --label "EKS (eks-store)"
 ```
 
-**O que esperar** (visto no [ensaio local](#ensaio-local-kind)): as réplicas novas levaram ≈ 1,5 min
-para receber a parte delas da carga ([por quê](#achado-balanceamento)); com o `keepalive_time 10s`
-aplicado depois no `lb`, devem levar ≈ 35–40 s. Na redução, os pods removidos
-aparecem como `Error` no terminal 2. Esse `Error` é o código de saída **143** (128 + SIGTERM) que a JVM
-devolve quando o Kubernetes manda o pod parar, conferido no `state.terminated.exitCode` do pod: não é falha.
+**What to expect** (seen in the [local rehearsal](#ensaio-local-kind)): the new replicas took ≈ 1.5 min
+to receive their share of the load ([why](#achado-balanceamento)); with `keepalive_time 10s`
+applied afterwards to `lb`, they should take ≈ 35–40 s. During scale-down, the removed pods
+show up as `Error` in terminal 2. That `Error` is exit code **143** (128 + SIGTERM), which the JVM
+returns when Kubernetes tells the pod to stop, checked in the pod's `state.terminated.exitCode`: it is not a failure.
 
-**Depois:** apagar o HPA (`kubectl delete hpa gateway -n store`) antes de apagar o cluster.
+**Afterwards:** delete the HPA (`kubectl delete hpa gateway -n store`) before deleting the cluster.
 
-### Ensaio local (kind)
+### Local rehearsal (kind) { #ensaio-local-kind }
 
-O roteiro acima foi ensaiado em 12/11/2026, antes do dia do EKS, num cluster **kind** (Kubernetes
-dentro do Docker) montado para ficar parecido com o `eks-store` e com **os mesmos manifestos**:
+The plan above was rehearsed on 12/11/2026, before the EKS day, on a **kind** cluster (Kubernetes
+inside Docker) set up to resemble `eks-store` and with **the same manifests**:
 
-| | `eks-store` (EKS) | Ensaio local (kind) |
+| | `eks-store` (EKS) | Local rehearsal (kind) |
 |---|---|---|
 | Kubernetes | 1.37 | 1.37 |
-| Nós | 2 × `t3.medium` | 2 workers com o alocável de um `t3.medium` (1930m de CPU, 3,4 GiB) |
-| Manifestos | `k8s/` e o `k8s/` de cada serviço | os mesmos; muda só a imagem (a do `docker compose build`) |
-| Banco | RDS | Postgres dentro do cluster |
-| Entrada | ELB → `lb` | `localhost:8081` → NodePort do `lb` |
+| Nodes | 2 × `t3.medium` | 2 workers with the allocatable of a `t3.medium` (1930m CPU, 3.4 GiB) |
+| Manifests | `k8s/` and each service's `k8s/` | the same; only the image changes (the one from `docker compose build`) |
+| Database | RDS | Postgres inside the cluster |
+| Ingress | ELB → `lb` | `localhost:8081` → `lb` NodePort |
 | HPA | metrics-server | metrics-server |
 
-A conta de capacidade de [Custos](custos-sla.md#o-que-precisa-rodar) se confirmou: com a plataforma no
-ar, cada nó tinha **1050m de CPU reservados de 1930m**, ou seja, cabem mais 3 gateways por nó (+6 no
-total). O ensaio **não** reproduz a latência do EKS (os nós do kind dividem os 12 núcleos da máquina,
-então um nó pode passar de 2 vCPU) nem o caminho pela internet e pelo ELB.
+The capacity math in [Costs](custos-sla.md#o-que-precisa-rodar) held up: with the platform
+running, each node had **1050m of CPU reserved out of 1930m**, i.e., 3 more gateways fit per node (+6 in
+total). The rehearsal does **not** reproduce EKS latency (kind nodes share the machine's 12 cores,
+so a node can exceed 2 vCPU) nor the path through the internet and the ELB.
 
 ``` bash
 docker compose build              # imagens dos serviços
@@ -265,118 +268,180 @@ python scripts/hpa-record.py      # HPA + k6 + vídeo + prints do Grafana (≈ 1
 kind delete cluster --name store
 ```
 
-O `hpa-record.py` roda os três comandos do roteiro e mostra as saídas lado a lado numa página local,
-que um Edge sem janela fotografa 2 vezes por segundo: o vídeo não depende de janela aberta e não mostra
-nada da tela de quem roda. Depois do k6, continua gravando até o HPA voltar a 2 réplicas e salva em
-`load/results/<nome>/` o vídeo (tempo real e 8×), a linha do tempo das réplicas, um resumo e os prints
-do Grafana com o intervalo exato do teste.
+`hpa-record.py` runs the three commands from the plan and shows the outputs side by side on a local page,
+which a windowless Edge captures twice per second: the video does not depend on an open window and shows
+nothing from the screen of whoever runs it. After k6 finishes, it keeps recording until the HPA is back to 2 replicas and saves to
+`load/results/<nome>/` the video (real time and 8×), the replica timeline, a summary and the Grafana
+screenshots for the exact test interval.
 
-#### Resultado do ensaio
+#### Rehearsal result { #resultado-do-ensaio }
 
-| Execução | VUs | Requisições | req/s | p50 (ms) | p95 (ms) | p99 (ms) | Erros | Réplicas (início → máx.) |
+| Run | VUs | Requests | req/s | p50 (ms) | p95 (ms) | p99 (ms) | Errors | Replicas (start → max) |
 |---|---:|---:|---:|---:|---:|---:|---:|---|
-| kind-hpa | 100 | 435.094 | 1.606,5 | 48 | 148 | 196 | 0,00 % | 2 → 6 |
+| kind-hpa | 100 | 435,094 | 1,606.5 | 48 | 148 | 196 | 0.00 % | 2 → 6 |
 
-| Tempo desde o início do k6 | O que aconteceu |
+| Time since k6 start | What happened |
 |---|---|
-| 0 → 20 s | o k6 sobe de 0 para 100 VUs (cenário `auth`, sem pausa entre as requisições) |
-| +27 s | CPU média do gateway em 131 % do `request` (alvo: 50 %): o HPA pede **4** réplicas |
-| +40 s | 4 réplicas no ar e CPU em 206 %: o HPA pede **6**, o máximo |
-| +64 s | as 6 réplicas prontas; nenhuma ficou sem espaço nos nós (*Pending*) |
-| +75 s → +150 s | as réplicas novas passam a receber carga, aos poucos ([achado](#achado-balanceamento)) |
-| +4 min 33 s | o k6 termina: **0 erros** em 435.094 requisições |
-| +10 min | o HPA volta para **2** réplicas, ≈ 5,5 min depois do fim da carga (a espera padrão é de 5 min) |
+| 0 → 20 s | k6 ramps from 0 to 100 VUs (`auth` scenario, no pause between requests) |
+| +27 s | average gateway CPU at 131 % of the `request` (target: 50 %): the HPA asks for **4** replicas |
+| +40 s | 4 replicas up and CPU at 206 %: the HPA asks for **6**, the maximum |
+| +64 s | all 6 replicas ready; none was left without room on the nodes (*Pending*) |
+| +75 s → +150 s | the new replicas gradually start receiving load ([finding](#achado-balanceamento)) |
+| +4 min 33 s | k6 finishes: **0 errors** in 435,094 requests |
+| +10 min | the HPA goes back to **2** replicas, ≈ 5.5 min after the load ends (the default wait is 5 min) |
 
 <video controls preload="metadata" width="100%" src="../hpa/kind-hpa-8x.mp4"></video>
 
-Vídeo **8× mais rápido** (1 min 20 s para 10 min 36 s de teste); o relógio no canto superior direito
-mostra o tempo real. Terminal 1: o HPA (CPU média × alvo e réplicas); terminal 2: os pods do gateway
-nascendo (*Pending* → *ContainerCreating* → *Running*) e, no fim, saindo; terminal 3: o k6. A versão em
-tempo real fica em `load/results/kind-hpa/hpa-tempo-real.mp4` (17 MB, fora do git).
+Video **8× faster** (1 min 20 s for 10 min 36 s of test); the clock in the top-right corner
+shows real time. Terminal 1: the HPA (average CPU × target and replicas); terminal 2: the gateway pods
+being born (*Pending* → *ContainerCreating* → *Running*) and, at the end, leaving; terminal 3: k6. The
+real-time version is at `load/results/kind-hpa/hpa-tempo-real.mp4` (17 MB, not in git).
 
-Grafana do cluster durante o teste (do início do k6 ao fim da carga):
+Cluster Grafana during the test (from k6 start to the end of the load):
 
-![Dashboard Store — plataforma durante o teste com HPA](hpa/kind-hpa-grafana.png)
+![Store — plataforma dashboard during the HPA test](hpa/kind-hpa-grafana.png)
 
-![Réplicas no ar ao longo do tempo: 2 → 6 → 2](hpa/kind-hpa-replicas.png)
+![Replicas up over time: 2 → 6 → 2](hpa/kind-hpa-replicas.png)
 
-A linha *exchange* do dashboard fica vazia porque o cenário `auth` não chama o câmbio.
+The dashboard's *exchange* row is empty because the `auth` scenario does not call the exchange service.
 
-#### Achado: as réplicas novas demoram ≈ 1,5 min para receber carga { #achado-balanceamento }
+#### Finding: new replicas take ≈ 1.5 min to receive load { #achado-balanceamento }
 
-O painel **Requisições/s por réplica** (as faixas empilhadas, uma por réplica) mostrou o que o k6
-sozinho não mostra: as 4 réplicas que o HPA criou ficaram prontas em +64 s, mas **receberam 0 req/s**
-até ≈ +75 s e só dividiram a carga por igual em ≈ +150 s.
+The **Requisições/s por réplica** panel (stacked bands, one per replica) showed what k6
+alone does not: the 4 replicas the HPA created were ready at +64 s, but **received 0 req/s**
+until ≈ +75 s and only shared the load evenly at ≈ +150 s.
 
-![Requisições/s por réplica: as réplicas novas entram aos poucos](hpa/kind-hpa-req-s-por-replica.png)
+![Requests/s per replica: the new replicas join gradually](hpa/kind-hpa-req-s-por-replica.png)
 
-| Tempo desde o início do k6 | 2 réplicas antigas (req/s cada) | 4 réplicas novas (req/s cada) |
+| Time since k6 start | 2 old replicas (req/s each) | 4 new replicas (req/s each) |
 |---|---|---|
 | +60 s | ≈ 740 | 0 |
 | +90 s | ≈ 520 | 60 – 100 |
 | +120 s | ≈ 360 | 175 – 340 |
 | +150 s | ≈ 255 | 210 – 380 |
 
-A CPU mostra o outro lado: as 4 réplicas novas começam em 85–97 % de 1 CPU **quase sem receber
-requisições** (é a JVM aquecendo: carga de classes e compilação), enquanto as 2 antigas seguram a
-carga em ≈ 60–70 %. Só por volta de +140 s todas ficam em ≈ 30–40 %.
+CPU shows the other side: the 4 new replicas start at 85–97 % of 1 CPU **while receiving almost no
+requests** (that is the JVM warming up: class loading and compilation), while the 2 old ones carry the
+load at ≈ 60–70 %. Only around +140 s do they all settle at ≈ 30–40 %.
 
-![CPU por réplica: as novas aquecem e depois todas convergem](hpa/kind-hpa-cpu-por-replica.png)
+![CPU per replica: the new ones warm up and then all converge](hpa/kind-hpa-cpu-por-replica.png)
 
-**Por quê:** o `lb` (Nginx) fala com o Service `gateway`, que é um IP virtual, e **reaproveita as
-conexões** (`keepalive 32` no `upstream`). O Service balanceia **conexões, não requisições**: cada
-conexão nova é sorteada entre os pods, mas uma conexão aberta fica no pod em que nasceu. As réplicas
-novas só recebem conexões novas e, com a carga estável, o Nginx só abre uma conexão nova quando fecha
-uma antiga, o que por padrão acontece depois de **1000 requisições** na mesma conexão
-(`keepalive_requests`). Com ≈ 100 requisições em paralelo e ≈ 1.600 req/s, cada conexão faz ≈ 16 req/s
-e leva ≈ 1 min para chegar a 1000. No compose não acontece porque lá o Nginx enxerga cada réplica pelo DNS do Docker e
-divide as requisições ele mesmo.
+**Why:** `lb` (Nginx) talks to the `gateway` Service, which is a virtual IP, and **reuses
+connections** (`keepalive 32` in the `upstream`). The Service balances **connections, not requests**: each
+new connection is randomly assigned to a pod, but an open connection stays on the pod where it was created. The new
+replicas only receive new connections and, with steady load, Nginx only opens a new connection when it closes
+an old one, which by default happens after **1000 requests** on the same connection
+(`keepalive_requests`). With ≈ 100 parallel requests and ≈ 1,600 req/s, each connection does ≈ 16 req/s
+and takes ≈ 1 min to reach 1000. It does not happen in compose because there Nginx sees each replica through Docker DNS and
+splits the requests itself.
 
-**Correções possíveis (`k8s/lb.yaml`, Leonardo):** a 1 foi **aplicada** depois do ensaio, então o
-teste no EKS já roda com ela.
+**Possible fixes (`k8s/lb.yaml`, Leonardo):** fix 1 was **applied** after the rehearsal, so the
+EKS test already runs with it.
 
-1. **Uma linha** no `upstream gateways`: `keepalive_time 10s;` (Nginx ≥ 1.21.3). Cada conexão dura no
-   máximo 10 s, então as réplicas novas entram na divisão bem mais cedo. Testado no ensaio, em duas
-   rodadas de 3 min: a carga ficou dividida por igual **≈ 35–40 s** depois de as réplicas novas ficarem
-   prontas, contra ≈ 86 s sem a linha, e a rodada com Auth e Account recém-reiniciados terminou com
-   **0 erros**. A vazão dessas rodadas não serve de comparação (numa o Auth caiu, como no achado
-   abaixo; na outra Auth e Account tinham acabado de reiniciar).
-2. **Igual ao compose:** um Service *headless* (`clusterIP: None`) para o gateway e, no Nginx,
-   `server <service-headless>:8080 resolve;` com `resolver kube-dns.kube-system.svc.cluster.local valid=10s;`.
-   O Nginx passa a enxergar cada pod e divide as requisições ele mesmo, como no compose.
+1. **One line** in `upstream gateways`: `keepalive_time 10s;` (Nginx ≥ 1.21.3). Each connection lasts at
+   most 10 s, so the new replicas join the split much earlier. Tested in the rehearsal, in two
+   3 min runs: the load was evenly split **≈ 35–40 s** after the new replicas became
+   ready, versus ≈ 86 s without the line, and the run with freshly restarted Auth and Account finished with
+   **0 errors**. Throughput from these runs is not comparable (in one, Auth went down, as in the finding
+   below; in the other, Auth and Account had just restarted).
+2. **Same as compose:** a *headless* Service (`clusterIP: None`) for the gateway and, in Nginx,
+   `server <service-headless>:8080 resolve;` with `resolver kube-dns.kube-system.svc.cluster.local valid=10s;`.
+   Nginx then sees each pod and splits the requests itself, as in compose.
 
-#### Achado: o Auth foi morto por falta de memória na rodada seguinte { #achado-oom-auth }
+#### Finding: Auth was OOM-killed in the following run { #achado-oom-auth }
 
-Na rodada de comparação acima (a segunda rodada pesada seguida), o Auth foi **OOMKilled** (código
-137) aos +3 min: nos ≈ 30–40 s seguintes, enquanto ele reiniciava, o gateway recebeu
-`connection refused` e `connect timeout` do Auth e devolveu **500** em **0,52 %** das requisições
-(1.413 falhas, todas em `GET /auth/me`).
+In the comparison run above (the second heavy run in a row), Auth was **OOMKilled** (code
+137) at +3 min: during the next ≈ 30–40 s, while it restarted, the gateway got
+`connection refused` and `connect timeout` from Auth and returned **500** for **0.52 %** of requests
+(1,413 failures, all on `GET /auth/me`).
 
-A causa está no Dockerfile dos quatro serviços Java: `-XX:MaxRAMPercentage=75`. Com o limite de 512 Mi
-do Auth, o heap pode chegar a 384 Mi e sobram só 128 Mi para o resto da JVM (metaspace, threads,
-código compilado), pouco para um Spring Boot sob carga. A primeira rodada fez o heap crescer e a
-segunda passou do limite. O Account, com a mesma configuração, estava em 393 Mi de 512 Mi.
+The cause is in the Dockerfile of the four Java services: `-XX:MaxRAMPercentage=75`. With Auth's 512 Mi
+limit, the heap can reach 384 Mi, leaving only 128 Mi for the rest of the JVM (metaspace, threads,
+compiled code), too little for Spring Boot under load. The first run grew the heap and the
+second went over the limit. Account, with the same configuration, was at 393 Mi out of 512 Mi.
 
-- **No dia do EKS:** entre uma tomada e outra do vídeo, reiniciar o Auth e o Account
+- **On EKS:** between video takes, restart Auth and Account
   (`kubectl rollout restart deployment/auth deployment/account -n store`).
-- **Correção sugerida (Nicolas):** `-XX:MaxRAMPercentage=60` (heap até ≈ 307 Mi, ≈ 205 Mi para o resto)
-  ou limite de 768 Mi no `k8s.yaml` do Auth e do Account. O `request`, que é o que o scheduler reserva,
-  não muda, então a conta de capacidade de [Custos](custos-sla.md#o-que-precisa-rodar) continua valendo.
+- **Suggested fix (Nicolas):** `-XX:MaxRAMPercentage=60` (heap up to ≈ 307 Mi, ≈ 205 Mi for the rest)
+  or a 768 Mi limit in Auth's and Account's `k8s.yaml`. The `request`, which is what the scheduler reserves,
+  does not change, so the capacity math in [Costs](custos-sla.md#o-que-precisa-rodar) still holds.
 
-### Resultado no EKS
+### EKS result { #resultado-no-eks }
 
-!!! warning "A medir no dia do EKS"
+Two runs on 19/11/2026, with the cluster up, in the `auth` scenario without pauses, for 4 min, with k6
+running outside AWS (in Brazil) against the ELB:
 
-    Preencher com o resumo do k6 (`load/results/eks-hpa.row.md`), o número máximo de réplicas que o HPA
-    criou, quanto tempo levou para escalar, e o link do vídeo. **Não preencher com números estimados.**
-
-| Execução | VUs | Requisições | req/s | p50 (ms) | p95 (ms) | p99 (ms) | Erros | Réplicas (início → máx.) |
+| Run | VUs | Requests | req/s | p50 (ms) | p95 (ms) | p99 (ms) | Errors | Replicas (start → max) |
 |---|---:|---:|---:|---:|---:|---:|---:|---|
-| eks-hpa | | | | | | | | 2 → |
+| **eks-hpa** (with HPA, recorded) | 100 | 149,160 | 532.7 | 153 | 254 | 356 | **0.00 %** | **2 → 6** |
+| eks-auth-200 (no HPA) | 200 | 230,602 | 819.4 | 193 | 370 | 630 | **0.00 %** | 2 (fixed) |
 
-<!-- vídeo do HPA: <iframe width="100%" height="470" src="https://www.youtube.com/embed/<id>" allowfullscreen></iframe> -->
+**Errors** is k6's `http_req_failed`: the fraction of **HTTP requests** that failed (unexpected status or
+connection error), measured only in the test phase. The 0.00 % refers to HTTP requests, not pods.
 
-## Código
+`eks-hpa` was recorded with `scripts/hpa-record.py` by someone who had `kubectl` access to the cluster.
+`eks-auth-200` ran only k6, from Gabriel's machine, which has no cluster access: without the HPA, the
+gateway stayed at the manifest's 2 replicas.
+
+**`eks-hpa` timeline** (since the start of the load; the recorder's summary counts ≈ 19 s more,
+the time k6 took to pull the image):
+
+| Time | What happened |
+|---|---|
+| 0 → 20 s | k6 ramps from 0 to 100 VUs |
+| +35 s | average gateway CPU at 118 % of the `request` (target: 50 %): the HPA asks for **4** replicas |
+| +52 s | 4 replicas up and CPU at 144 %: the HPA asks for **6**, the maximum |
+| +91 s | all 6 replicas ready, 3 on each node; **none was left without room** (*Pending*): the `--max=6` capacity math held up on EKS |
+| +4 min 31 s | k6 finishes: **0 errors** in 149,160 requests |
+| +10 min | the HPA goes back to **2** replicas, ≈ 5.5 min after the load ends |
+
+<video controls preload="metadata" width="100%" src="../hpa/eks-hpa-8x.mp4"></video>
+
+Video **8× faster** (1 min 22 s for 11 min of test) on EKS; the clock in the corner shows real
+time. The new pods are born on both `eks-store` nodes (`ip-10-20-…us-east-2.compute.internal`) and, during
+scale-down, leave as `Error` (the JVM's code 143, see above). The real-time version (19 MB) is in
+`load/results/eks-hpa/`, not in git.
+
+Cluster Grafana during the test (from the start of the load to the end of k6):
+
+![Store — plataforma dashboard on EKS during the HPA test](hpa/eks-hpa-grafana.png)
+
+What the numbers show:
+
+- **Within the SLO in both runs:** p95 of 254 and 370 ms (< 500 ms), p99 of 356 and 630 ms (< 1.5 s) and
+  **0 errors** in 379,762 requests. Auth did not go down.
+- **Latency is almost entirely network.** With 1 user (`smoke` test before `eks-auth-200`), each
+  request already took ≈ 180 ms: that is the round trip from Brazil to `us-east-2`. That is why throughput on EKS is
+  lower than in the local rehearsal: the limit is how many round trips each user can make, not the
+  server. To measure the cluster's capacity, k6 would have to run inside AWS.
+- **Load balancing kept up with the new replicas:** in the "Requisições/s por réplica" panel, the bands
+  of the 4 replicas created by the HPA appear and grow while k6 runs. In `eks-auth-200`, 23 samples
+  of `/health-check` through the ELB split 54 % / 46 % between the 2 replicas.
+- **CPU repeats the rehearsal:** the new replicas start at 60–85 % (the JVM warming up) and, once the load
+  is split, all stay between ≈ 15 and 30 %.
+
+!!! warning "Room for improvement: gateway graceful shutdown"
+
+    During the scale-down from 6 to 2 replicas, **2 old gateway pods ended in `Error` (`0/1`)** in
+    terminal 2 of the video: it is the JVM's code 143 (SIGTERM), not an application failure, and the scale-down
+    happened after k6 finished, so no request was lost in this run. But shutdown
+    **was not tested with traffic**, and the gateway configures nothing for it: today the pod may stop
+    while still receiving requests from Nginx. Proposed fix for the gateway:
+
+    - `server.shutdown: graceful` and `spring.lifecycle.timeout-per-shutdown-phase: 20s` in Spring Boot,
+      to finish in-flight requests before exiting;
+    - `lifecycle.preStop` with a `sleep 5` and `terminationGracePeriodSeconds: 30` in the Deployment, so the
+      pod leaves the Service (and Nginx) before the JVM receives SIGTERM;
+    - repeat the scale-down **with k6 running** and check for 0 errors in that phase too.
+
+**To repeat the run:** `./scripts/eks-hpa.sh` ([code](#codigo)) checks the prerequisites above
+(kubectl 1.34+, `eks-store` context, metrics-server, ELB responding; `DRY_RUN=1` to only check),
+restarts Auth and Account and runs `hpa-record.py`. At the end, `scripts/fill-eks-hpa.py` builds the table
+row and the timeline from `load/results/<nome>/resumo.json` (measured numbers only) and prints the
+Markdown snippet to paste into this section.
+
+
+## Code { #codigo }
 
 === "load/store.js"
 
@@ -406,4 +471,16 @@ segunda passou do limite. O Account, com a mesma configuração, estava em 393 M
 
     ``` { .python .copy }
     --8<-- "scripts/hpa-record.py"
+    ```
+
+=== "scripts/eks-hpa.sh"
+
+    ``` { .bash .copy }
+    --8<-- "scripts/eks-hpa.sh"
+    ```
+
+=== "scripts/fill-eks-hpa.py"
+
+    ``` { .python .copy }
+    --8<-- "scripts/fill-eks-hpa.py"
     ```

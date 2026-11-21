@@ -1,47 +1,47 @@
 # CI/CD (GitHub Actions)
 
-!!! info "Responsável: Leonardo"
+!!! info "Owner: Leonardo"
 
-Escolhemos **GitHub Actions** em vez de Jenkins: não precisa de servidor próprio rodando, os segredos
-ficam na organização do GitHub e os resultados aparecem direto nos PRs e na aba Security.
+We chose **GitHub Actions** over Jenkins: it needs no self-hosted server, secrets
+live in the GitHub organization and results show up directly in PRs and in the Security tab.
 
-## Desenho
+## Design { #desenho }
 
-Um único pipeline **reutilizável** fica no repositório `platform`
+A single **reusable** pipeline lives in the `platform` repository
 ([`.github/workflows/service.yaml`](https://github.com/pna26/platform/blob/main/.github/workflows/service.yaml){target="_blank"})
-e cada microsserviço só tem um arquivo pequeno que o chama. Uma correção no pipeline vale para todos os
-serviços de uma vez.
+and each microservice only has a small file that calls it. A fix to the pipeline applies to every
+service at once.
 
 ``` mermaid
 flowchart LR
-    subgraph svc ["repo do serviço (push/PR)"]
-        ci["ci.yaml<br/>(10 linhas)"]
+    subgraph svc ["service repo (push/PR)"]
+        ci["ci.yaml<br/>(10 lines)"]
     end
     subgraph platform ["pna26/platform"]
         reuse["service.yaml<br/>(workflow_call)"]
     end
     ci -->|uses| reuse
-    reuse --> b["1. build + testes"]
-    b --> s1["2. Trivy: código"]
-    s1 --> s2["3. Trivy: imagem"]
-    s2 --> gate{"portão de<br/>segurança"}
-    gate -->|"push na main"| p["4. push multi-arch<br/>GHCR + ECR"]
-    p --> d["5. deploy EKS<br/>kubectl apply + rollout"]
+    reuse --> b["1. build + tests"]
+    b --> s1["2. Trivy: code"]
+    s1 --> s2["3. Trivy: image"]
+    s2 --> gate{"security<br/>gate"}
+    gate -->|"push to main"| p["4. multi-arch push<br/>GHCR + ECR"]
+    p --> d["5. EKS deploy<br/>kubectl apply + rollout"]
 ```
 
-| Etapa | Quando | O que faz |
+| Stage | When | What it does |
 |---|---|---|
-| 1. Build e testes | sempre | `mvn verify` (Java, depois do `mvn install` das interfaces `account`/`auth` da org) ou `pytest` (Python) |
-| 2. Trivy no código | sempre | dependências, segredos, `Dockerfile` e `k8s/` ([detalhes](../bottlenecks/vulnerability-scanning.md)) |
-| 3. Trivy na imagem | serviços | `docker build` local e varredura da imagem antes de publicar |
-| Portão | sempre | falha com CVE CRITICAL corrigível ou segredo exposto |
-| 4. Push | push na `main` | imagem `linux/amd64` + `linux/arm64` em `ghcr.io/pna26/<serviço>:sha-<commit>` e `:latest`; também no ECR quando houver credenciais da AWS (cria o repositório com *scan on push* se faltar) |
-| 5. Deploy | push na `main` com `EKS_CLUSTER` definido | `aws eks update-kubeconfig`, troca a imagem `:latest` do `k8s/` pela do commit, `kubectl apply` e espera o `rollout status` |
+| 1. Build and tests | always | `mvn verify` (Java, after `mvn install` of the org's `account`/`auth` interfaces) or `pytest` (Python) |
+| 2. Trivy on code | always | dependencies, secrets, `Dockerfile` and `k8s/` ([details](../bottlenecks/vulnerability-scanning.md)) |
+| 3. Trivy on image | services | local `docker build` and image scan before publishing |
+| Gate | always | fails on a fixable CRITICAL CVE or an exposed secret |
+| 4. Push | push to `main` | `linux/amd64` + `linux/arm64` image to `ghcr.io/pna26/<serviço>:sha-<commit>` and `:latest`; also to ECR when AWS credentials are available (creates the repository with *scan on push* if missing) |
+| 5. Deploy | push to `main` with `EKS_CLUSTER` set | `aws eks update-kubeconfig`, swaps the `:latest` image in `k8s/` for the commit's, `kubectl apply` and waits for `rollout status` |
 
-Em **pull requests** só rodam as etapas 1–3: o PR mostra se compila, se os testes passam e se a
-varredura acha algo, sem publicar nada.
+On **pull requests** only stages 1–3 run: the PR shows whether it compiles, whether tests pass and whether the
+scan finds anything, without publishing anything.
 
-## Como cada serviço usa
+## How each service uses it { #como-cada-servico-usa }
 
 === "gateway-service"
 
@@ -49,7 +49,7 @@ varredura acha algo, sem publicar nada.
     --8<-- "api/gateway-service/.github/workflows/ci.yaml"
     ```
 
-=== "account / auth (bibliotecas)"
+=== "account / auth (libraries)"
 
     ``` { .yaml .copy title=".github/workflows/ci.yaml" }
     name: ci
@@ -125,76 +125,76 @@ varredura acha algo, sem publicar nada.
         secrets: inherit
     ```
 
-## Configuração da AWS (alinhar com o Nicolas)
+## AWS configuration (align with Nicolas) { #configuracao-da-aws-alinhar-com-o-nicolas }
 
-O pipeline entra na AWS por **OIDC**: o job pede um token ao GitHub e assume uma role IAM, então
-nenhuma chave de acesso fica guardada no GitHub. Por isso o `ci.yaml` de quem publica imagem precisa
-de `id-token: write` em `permissions`. Os jobs do `service.yaml` não declaram permissões e herdam as
-do `ci.yaml`: um reutilizável não pode ter mais permissão que quem o chama, e se ele pedisse
-`id-token: write` todo repositório sem essa linha ficaria sem CI. Assim, sem a linha, o pipeline roda
-igual, publica só no GHCR e avisa que pulou o ECR; o deploy no EKS falha com a mensagem do que falta.
-As bibliotecas (`account`, `auth`) não publicam imagem e não precisam dela.
+The pipeline signs in to AWS via **OIDC**: the job requests a token from GitHub and assumes an IAM role, so
+no access key is stored in GitHub. That is why the `ci.yaml` of any repo that publishes an image needs
+`id-token: write` under `permissions`. The `service.yaml` jobs declare no permissions and inherit those
+of `ci.yaml`: a reusable workflow cannot have more permissions than its caller, and if it requested
+`id-token: write`, every repository without that line would lose CI. So, without the line, the pipeline runs
+the same, publishes only to GHCR and warns that it skipped ECR; the EKS deploy fails with a message stating what is missing.
+The libraries (`account`, `auth`) do not publish an image and do not need it.
 
-O deploy só liga quando estas variáveis existem na **organização** `pna26` (Settings → Secrets and
-variables → Actions → Variables), assim nenhum repositório precisa mudar:
+Deploy only turns on when these variables exist in the `pna26` **organization** (Settings → Secrets and
+variables → Actions → Variables), so no repository needs to change:
 
-| Variável | Valor |
+| Variable | Value |
 |---|---|
 | `AWS_ROLE_ARN` | `arn:aws:iam::637423273088:role/github-actions-pna26` |
 | `AWS_REGION` | `us-east-2` |
 | `K8S_NAMESPACE` | `store` |
-| `EKS_CLUSTER` | `eks-store` (só depois que o cluster estiver no ar) |
+| `EKS_CLUSTER` | `eks-store` (only once the cluster is up) |
 
-A role confia nos repositórios da org (`repo:pna26@317011053/*`, ver [AWS](aws.md#problemas-encontrados)) e pode: push/pull no ECR (os repositórios
-`gateway-service`, `auth-service`, `account-service` e `exchange-service` já são criados por fora) e
-`eks:DescribeCluster`. Para o `kubectl apply` ela também precisa de uma **access entry** no cluster
-com a política `AmazonEKSAdminPolicy` no namespace `store`, mais um `RoleBinding` para o papel `admin`
-do namespace: sem ele o Kubernetes barra o `Role` do Prometheus que o `infra` aplica (detalhes em
+The role trusts the org's repositories (`repo:pna26@317011053/*`, see [AWS](aws.md#problemas-encontrados)) and can: push/pull to ECR (the
+`gateway-service`, `auth-service`, `account-service` and `exchange-service` repositories are created separately) and
+`eks:DescribeCluster`. For `kubectl apply` it also needs an **access entry** on the cluster
+with the `AmazonEKSAdminPolicy` policy on the `store` namespace, plus a `RoleBinding` to the namespace's `admin`
+role: without it Kubernetes blocks the Prometheus `Role` that `infra` applies (details in
 [EKS](eks.md)).
 
-!!! tip "Sem AWS"
+!!! tip "Without AWS"
 
-    Sem `AWS_ROLE_ARN`, o pipeline continua fazendo build, testes, varredura e publica as imagens no
-    **GHCR**. O EKS consegue puxar do GHCR desde que os pacotes estejam públicos.
+    Without `AWS_ROLE_ARN`, the pipeline still builds, tests, scans and publishes the images to
+    **GHCR**. EKS can pull from GHCR as long as the packages are public.
 
-## Evidência
+## Evidence { #evidencia }
 
-### OIDC e ECR (10–13/11)
+### OIDC and ECR (10–13/11) { #oidc-e-ecr-101311 }
 
-Runs na `main` depois do OIDC. Em todos, o job entrou na AWS sem nenhuma chave guardada no GitHub
-(passo *Credenciais da AWS*), fez login no ECR e publicou a imagem no ECR e no GHCR. O job *deploy no
-EKS* aparece como `skipped` porque a variável `EKS_CLUSTER` só existe com o cluster no ar.
+Runs on `main` after OIDC. In all of them, the job signed in to AWS with no key stored in GitHub
+(*Credenciais da AWS* step), logged in to ECR and published the image to ECR and GHCR. The *deploy no
+EKS* job shows as `skipped` because the `EKS_CLUSTER` variable only exists while the cluster is up.
 
-| Serviço | Run | Data | Build, testes e Trivy | AWS por OIDC + push no ECR |
+| Service | Run | Date | Build, tests and Trivy | AWS via OIDC + push to ECR |
 |---|---|---|---|---|
 | gateway-service | [43455719598](https://github.com/pna26/gateway-service/actions/runs/43455719598){target="_blank"} | 13/11 | :material-check: | :material-check: `gateway-service:sha-0bb8f83` |
 | account-service | [42867888940](https://github.com/pna26/account-service/actions/runs/42867888940){target="_blank"} | 10/11 | :material-check: | :material-check: |
 | auth-service | [42867899239](https://github.com/pna26/auth-service/actions/runs/42867899239){target="_blank"} | 10/11 | :material-check: | :material-check: |
 | notification-service | [42867914768](https://github.com/pna26/notification-service/actions/runs/42867914768){target="_blank"} | 10/11 | :material-check: | :material-check: |
-| exchange-service | [42675957434](https://github.com/pna26/exchange-service/actions/runs/42675957434){target="_blank"} | 09/11 | :material-check: | antes do OIDC: só GHCR (vai ao ECR no próximo push) |
+| exchange-service | [42675957434](https://github.com/pna26/exchange-service/actions/runs/42675957434){target="_blank"} | 09/11 | :material-check: | before OIDC: GHCR only (goes to ECR on the next push) |
 
-Trecho do log do gateway (passo *Build e push*):
+Excerpt from the gateway log (*Build e push* step):
 
 ``` text
 pushing manifest for 637423273088.dkr.ecr.us-east-2.amazonaws.com/gateway-service:sha-0bb8f83@sha256:55a869db80fc... done
 ```
 
-### Deploy no EKS (16/11)
+### EKS deploy (16/11) { #deploy-no-eks-1611 }
 
-Com o `eks-store` no ar e `EKS_CLUSTER=eks-store` na org, o pipeline reutilizável fez o caminho
-inteiro sem nenhum comando manual de deploy: build, testes, Trivy, OIDC, push no ECR, troca da imagem
-`:latest` pela do commit, `kubectl apply` e `rollout status`.
+With `eks-store` up and `EKS_CLUSTER=eks-store` set in the org, the reusable pipeline ran the whole
+path without any manual deploy command: build, tests, Trivy, OIDC, push to ECR, swapping the
+`:latest` image for the commit's, `kubectl apply` and `rollout status`.
 
-| Workflow | Run | Commit | Build, testes e Trivy | Deploy no EKS |
+| Workflow | Run | Commit | Build, tests and Trivy | EKS deploy |
 |---|---|---|---|---|
 | account-service | [43856117521](https://github.com/pna26/account-service/actions/runs/43856117521){target="_blank"} | `b8d85c0` | :material-check: | :material-check: |
 | auth-service | [43856123470](https://github.com/pna26/auth-service/actions/runs/43856123470){target="_blank"} | `81e9c12` | :material-check: | :material-check: |
 | notification-service | [43856129429](https://github.com/pna26/notification-service/actions/runs/43856129429){target="_blank"} | `b3dc4c6` | :material-check: | :material-check: |
-| `infra` (1ª tentativa) | [43855377825](https://github.com/pna26/platform/actions/runs/43855377825){target="_blank"} | — | — | :material-close: o Kubernetes barrou o `Role` do Prometheus (resolvido com um `RoleBinding`, ver [EKS](eks.md)) |
-| `infra` (2ª tentativa) | [43855531385](https://github.com/pna26/platform/actions/runs/43855531385){target="_blank"} | — | — | :material-close: manifestos aplicados e Redis pronto, mas o `lb` não subiu |
+| `infra` (1st attempt) | [43855377825](https://github.com/pna26/platform/actions/runs/43855377825){target="_blank"} | — | — | :material-close: Kubernetes blocked Prometheus's `Role` (solved with a `RoleBinding`, see [EKS](eks.md)) |
+| `infra` (2nd attempt) | [43855531385](https://github.com/pna26/platform/actions/runs/43855531385){target="_blank"} | — | — | :material-close: manifests applied and Redis ready, but `lb` did not come up |
 
-Gateway e exchange não foram publicados nesse dia. O vermelho da 2ª tentativa do `infra` era um
-problema do próprio `lb`:
+Gateway and exchange were not published that day. The red on `infra`'s 2nd attempt was a
+problem with `lb` itself:
 
 ``` text
 deployment "redis" successfully rolled out
@@ -202,28 +202,28 @@ Waiting for deployment "lb" rollout to finish: 0 of 2 updated replicas are avail
 error: timed out waiting for the condition
 ```
 
-O Nginx resolvia o nome `gateway` só na inicialização e, sem o Service `gateway`, caía com *host not
-found*. O `infra` parava no `lb` e nem chegava a conferir Prometheus e Grafana. **Correção:** o
-`k8s/lb.yaml` passou a resolver o gateway em tempo de execução (`resolve`, ver
-[Balanceamento de carga](../bottlenecks/load-balancing.md)): o `lb` fica pronto antes do gateway,
-responde `502` enquanto ele não existe e começa a encaminhar sozinho quando o gateway sobe. Testado em
-contêiner com o mesmo `nginx.conf`: sem gateway, `/lb/health` → `200` e `/` → `502`; o gateway sobe e
-`/` passa a `200` sem reiniciar o Nginx.
+Nginx resolved the `gateway` name only at startup and, without the `gateway` Service, crashed with *host not
+found*. `infra` stopped at `lb` and never got to check Prometheus and Grafana. **Fix:**
+`k8s/lb.yaml` now resolves the gateway at runtime (`resolve`, see
+[Load balancing](../bottlenecks/load-balancing.md)): `lb` becomes ready before the gateway,
+returns `502` while it does not exist and starts forwarding on its own once the gateway comes up. Tested in a
+container with the same `nginx.conf`: without gateway, `/lb/health` → `200` and `/` → `502`; the gateway comes up and
+`/` turns `200` without restarting Nginx.
 
-!!! warning "Falta"
+!!! info "Next time the cluster comes up"
 
-    O deploy do **gateway** e do **exchange** pelo CI, e o `infra` verde com a correção do `lb`, ficam
-    para a próxima vez que o cluster subir: um *Run workflow* em cada um, com o link do run aqui.
+    The CI deploy of **gateway** and **exchange**, and a green `infra` with the `lb` fix, are left
+    for the next time the cluster comes up: one *Run workflow* for each, with the run link here.
 
-## Outros workflows do `platform`
+## Other `platform` workflows { #outros-workflows-do-platform }
 
-| Workflow | Gatilho | O que faz |
+| Workflow | Trigger | What it does |
 |---|---|---|
-| `integration` | push, PR, toda segunda | Sobe a plataforma inteira com o compose (submódulos), roda o `smoke-test.sh` e o OWASP ZAP |
-| `infra` | mudança em `k8s/` | Aplica no EKS o Nginx (`lb`), Redis, Kafka, Mailpit, Prometheus e Grafana |
-| `docs` | push na `main` | Publica esta documentação no GitHub Pages |
+| `integration` | push, PR, every Monday | Brings up the whole platform with compose (submodules), runs `smoke-test.sh` and OWASP ZAP |
+| `infra` | change in `k8s/` | Applies Nginx (`lb`), Redis, Kafka, Mailpit, Prometheus and Grafana to EKS |
+| `docs` | push to `main` | Publishes this documentation to GitHub Pages |
 
-## Pipeline completo
+## Full pipeline { #pipeline-completo }
 
 ??? example "`.github/workflows/service.yaml`"
 

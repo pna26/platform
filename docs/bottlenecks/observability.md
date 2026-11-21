@@ -1,69 +1,69 @@
-# Observabilidade
+# Observability
 
-!!! info "Responsável: Gabriel"
+!!! info "Owner: Gabriel"
 
-## Problema
+## Problem { #problema }
 
-Com várias réplicas do gateway atrás do Nginx, um cache no Redis e um serviço que depende de uma API
-externa, **não dava para saber o que estava acontecendo sob carga**: qual réplica recebe mais
-requisições, se o cache está acertando, se os erros vêm do gateway ou do Exchange, se a JVM está perto
-do limite de memória. Sem isso, o [teste de carga](../devops/load-testing.md) só mostraria o número
-final do cliente, sem explicar o porquê.
+With several gateway replicas behind Nginx, a cache in Redis and a service that depends on an external
+API, **there was no way to know what was happening under load**: which replica gets more
+requests, whether the cache is hitting, whether errors come from the gateway or from Exchange, whether the JVM is close
+to its memory limit. Without that, the [load test](../devops/load-testing.md) would only show the client's final
+number, without explaining why.
 
-## Solução
+## Solution { #solucao }
 
-**Prometheus** raspa as métricas de cada réplica a cada 5 s e o **Grafana** mostra um dashboard
-versionado no repositório, provisionado automaticamente (sem clicar na interface).
+**Prometheus** scrapes each replica's metrics every 5 s and **Grafana** shows a dashboard
+versioned in the repository, provisioned automatically (no clicking through the UI).
 
 ``` mermaid
 flowchart LR
-    subgraph trusted [Rede interna]
+    subgraph trusted [Internal network]
         gw1["gateway 1"] & gw2["gateway 2"] -.->|"/gateway/actuator/prometheus"| prom[(Prometheus)]
         ex["exchange"] -.->|"/metrics"| prom
         prom --> graf[Grafana]
     end
     k6([k6]) -->|remote write| prom
-    dev([você]) -->|"127.0.0.1:3000"| graf
+    dev([you]) -->|"127.0.0.1:3000"| graf
 ```
 
-| Decisão | Motivo |
+| Decision | Reason |
 |---|---|
-| `dns_sd_configs` no compose | O nome `gateway` resolve para **todos** os IPs das réplicas; cada uma vira um alvo (`instance`). Com `static_configs` cada scrape cairia numa réplica aleatória e as séries se misturariam. `--scale gateway=N` entra sozinho em até 10 s. |
-| `kubernetes_sd_configs` + anotações `prometheus.io/*` no EKS | O Prometheus descobre os pods do namespace; quem quer ser raspado só anota o pod (gateway e exchange já anotam). RBAC com `Role` só de leitura no namespace, não `ClusterRole`. |
-| Métricas fora da internet | O `lb` responde `404` para `/gateway/actuator/**` e o gateway só encaminha `/exchange/**` (o `/metrics` do exchange fica de fora). Prometheus e Grafana: `127.0.0.1` no compose e `ClusterIP` + `port-forward` no EKS. |
-| Dashboard em JSON no git (`setup/grafana/dashboards/store.json`) | O mesmo arquivo serve o compose (volume) e o EKS (ConfigMap criado pelo workflow `infra`). Mudou o dashboard → PR. |
-| Remote write do k6 | O teste de carga aparece no mesmo dashboard, no mesmo eixo de tempo das métricas do servidor. |
-| Senha do Grafana fora do git | Compose: `GRAFANA_ADMIN_PASSWORD` no `.env`. EKS: Secret criado pelo workflow (secret da org ou aleatória). |
-| Exchange com histograma; gateway com média/máximo | O exchange publica buckets (`exchange_http_server_requests_seconds_bucket`), então tem p50/p95/p99. O Spring Boot não publica buckets por padrão; os percentis do lado do cliente vêm do k6. |
+| `dns_sd_configs` in compose | The name `gateway` resolves to **all** replica IPs; each one becomes a target (`instance`). With `static_configs` each scrape would land on a random replica and the series would get mixed up. `--scale gateway=N` is picked up on its own within 10 s. |
+| `kubernetes_sd_configs` + `prometheus.io/*` annotations on EKS | Prometheus discovers the namespace's pods; anything that wants to be scraped just annotates the pod (gateway and exchange already do). RBAC with a read-only `Role` in the namespace, not a `ClusterRole`. |
+| Metrics off the internet | `lb` answers `404` for `/gateway/actuator/**` and the gateway only forwards `/exchange/**` (exchange's `/metrics` is left out). Prometheus and Grafana: `127.0.0.1` in compose and `ClusterIP` + `port-forward` on EKS. |
+| Dashboard as JSON in git (`setup/grafana/dashboards/store.json`) | The same file serves compose (volume) and EKS (ConfigMap created by the `infra` workflow). Dashboard changed → PR. |
+| k6 remote write | The load test shows up on the same dashboard, on the same time axis as the server metrics. |
+| Grafana password out of git | Compose: `GRAFANA_ADMIN_PASSWORD` in `.env`. EKS: Secret created by the workflow (org secret or random). |
+| Exchange with a histogram; gateway with mean/max | Exchange publishes buckets (`exchange_http_server_requests_seconds_bucket`), so it has p50/p95/p99. Spring Boot does not publish buckets by default; the client-side percentiles come from k6. |
 
-## Métricas usadas
+## Metrics used { #metricas-usadas }
 
-| Origem | Métrica | Para quê |
+| Source | Metric | What for |
 |---|---|---|
-| gateway (Micrometer) | `http_server_requests_seconds_{count,sum,max}` | req/s por status e por réplica, latência média/máxima, taxa de 5xx |
-| gateway | `gateway_token_cache_total{result}` | acerto do [cache do token](cache.md) |
-| gateway | `jvm_memory_used_bytes`, `process_cpu_usage` | memória e CPU por réplica |
-| exchange | `exchange_http_server_requests_seconds` (histograma, label `route` = template) | req/s e p50/p95/p99 da cotação |
-| exchange | `exchange_quote_cache_total{result}` | acerto do [cache da cotação](exchange-cache.md) |
-| exchange | `exchange_upstream_request_seconds{outcome}` | chamadas e latência da API externa |
-| Prometheus | `up{job}` | réplicas no ar (o número e a curva do HPA) |
-| k6 | `k6_vus`, `k6_http_reqs_total`, `k6_http_req_duration_p95/p99` | carga aplicada e latência vista pelo cliente |
+| gateway (Micrometer) | `http_server_requests_seconds_{count,sum,max}` | req/s by status and by replica, mean/max latency, 5xx rate |
+| gateway | `gateway_token_cache_total{result}` | [token cache](cache.md) hit rate |
+| gateway | `jvm_memory_used_bytes`, `process_cpu_usage` | memory and CPU per replica |
+| exchange | `exchange_http_server_requests_seconds` (histogram, label `route` = template) | quote req/s and p50/p95/p99 |
+| exchange | `exchange_quote_cache_total{result}` | [quote cache](exchange-cache.md) hit rate |
+| exchange | `exchange_upstream_request_seconds{outcome}` | calls to and latency of the external API |
+| Prometheus | `up{job}` | replicas up (the HPA number and curve) |
+| k6 | `k6_vus`, `k6_http_reqs_total`, `k6_http_req_duration_p95/p99` | applied load and latency seen by the client |
 
-O label `route` do exchange usa o **template** da rota (`/exchange/{from_}/{to}`), não a URL real: senão
-cada par de moedas criaria uma série nova no Prometheus (explosão de cardinalidade). Há um teste para isso.
+Exchange's `route` label uses the route **template** (`/exchange/{from_}/{to}`), not the actual URL: otherwise
+each currency pair would create a new series in Prometheus (cardinality explosion). There is a test for this.
 
-## Dashboard
+## Dashboard { #dashboard }
 
-**Store — plataforma** (pasta *Store*, também é a página inicial do Grafana):
+**Store — plataforma** (*Store* folder, also Grafana's home page):
 
-| Linha | Painéis |
+| Row | Panels |
 |---|---|
-| Visão geral | req/s, % de 5xx (verde/laranja/vermelho), réplicas no ar por serviço, % de acerto do cache do token |
-| Gateway | **réplicas no ar ao longo do tempo** (mostra o HPA), req/s por status, latência média/máxima, **req/s por réplica** (mostra o balanceamento), cache hit/miss/error, heap e CPU por réplica |
-| Exchange | cotações/s por status, p50/p95/p99, cache da cotação × chamadas à API externa |
-| Teste de carga (k6) | VUs e req/s, p95/p99 do cliente por cenário |
+| Overview | req/s, % of 5xx (green/orange/red), replicas up per service, token cache hit % |
+| Gateway | **replicas up over time** (shows the HPA), req/s by status, mean/max latency, **req/s per replica** (shows the balancing), cache hit/miss/error, heap and CPU per replica |
+| Exchange | quotes/s by status, p50/p95/p99, quote cache × calls to the external API |
+| Load test (k6) | VUs and req/s, client p95/p99 per scenario |
 
-## Como usar
+## How to use { #como-usar }
 
 === "Compose"
 
@@ -81,45 +81,48 @@ cada par de moedas criaria uma série nova no Prometheus (explosão de cardinali
     kubectl port-forward svc/prometheus 9090 -n store
     ```
 
-Para ver o dashboard se mexer, rode um [teste de carga](../devops/load-testing.md) em outro terminal.
+To see the dashboard move, run a [load test](../devops/load-testing.md) in another terminal.
 
-## Resultado: o que a observabilidade mostrou
+## Result: what observability showed { #resultado-o-que-a-observabilidade-mostrou }
 
-Verificado em 05/11/2026 com a plataforma local no ar: o Prometheus descobriu sozinho as 2 réplicas
-do gateway e o exchange (`/targets`, todos `up`), o Grafana subiu com o data source e o dashboard já
-provisionados, e todas as consultas do dashboard retornam dados.
+Verified on 05/11/2026 with the local platform up: Prometheus discovered the 2 gateway replicas
+and exchange on its own (`/targets`, all `up`), Grafana came up with the data source and the dashboard already
+provisioned, and every dashboard query returns data.
 
-Durante o [teste de carga](../devops/load-testing.md) foi a observabilidade que **explicou** os números
-que o k6 só mostrava de fora:
+During the [load test](../devops/load-testing.md) it was observability that **explained** the numbers
+k6 only showed from the outside:
 
-| Pergunta | Onde a resposta apareceu |
+| Question | Where the answer showed up |
 |---|---|
-| O cache do token está mesmo poupando o Auth? | `gateway_token_cache_total`: **7.571 hits × 21 misses** na rodada com cache (99,7 %). |
-| Por que 4 réplicas renderam *menos* que 1 na saturação? | CPU da máquina (`system_cpu_usage`) em ≈ 83–85 % nas duas rodadas: as réplicas disputavam os mesmos núcleos. |
-| De onde vieram os 0,57 % de erro na saturação? | `http_server_requests_seconds_count{status="500"}` no gateway (≈ 3.500) → logs do Auth: `BindException` ao chamar o Account (Feign sem pool de conexões). |
-| As réplicas que o HPA criou recebem carga logo? | **Não:** no [teste com HPA](../devops/load-testing.md#ensaio-local-kind), "Requisições/s por réplica" mostrou as 4 novas começando com 0 req/s e a carga dividida por igual só ≈ 1,5 min depois de elas ficarem prontas. O `lb` reaproveita conexões e o Service do Kubernetes balanceia conexões, não requisições ([achado](../devops/load-testing.md#achado-balanceamento)). Corrigido no `lb` com `keepalive_time 10s` (≈ 35–40 s no ensaio). |
+| Is the token cache really sparing Auth? | `gateway_token_cache_total`: **7,571 hits × 21 misses** in the run with cache (99.7 %). |
+| Why did 4 replicas deliver *less* than 1 at saturation? | Machine CPU (`system_cpu_usage`) at ≈ 83–85 % in both runs: the replicas were competing for the same cores. |
+| Where did the 0.57 % errors at saturation come from? | `http_server_requests_seconds_count{status="500"}` on the gateway (≈ 3,500) → Auth logs: `BindException` when calling Account (Feign without a connection pool). |
+| Do the replicas the HPA created get load right away? | **No:** in the [HPA test](../devops/load-testing.md#ensaio-local-kind), "Requisições/s por réplica" showed the 4 new ones starting at 0 req/s and the load split evenly only ≈ 1.5 min after they became ready. `lb` reuses connections and the Kubernetes Service balances connections, not requests ([finding](../devops/load-testing.md#achado-balanceamento)). Fixed in `lb` with `keepalive_time 10s` (≈ 35–40 s in the trial run). |
 
-### Durante o teste com HPA
+### During the HPA test { #durante-o-teste-com-hpa }
 
-Ensaio local do teste com HPA ([roteiro e resultado](../devops/load-testing.md#ensaio-local-kind)),
-do início do k6 ao fim da carga: o gateway sobe de 2 para 6 réplicas em ≈ 1 min, com 0 % de erros 5xx
-e o cache do token acertando 100 %. A linha *exchange* fica vazia porque o cenário `auth` não chama o
-câmbio.
+Grafana on **EKS** during the HPA test of 19/11 ([result](../devops/load-testing.md#resultado-no-eks)),
+from the start of the load to the end of k6: the gateway scales from 2 to 4 and then 6 replicas, with 0 % 5xx
+errors and the token cache hitting 100 %. The *exchange* row has no traffic because the `auth` scenario does
+not call the exchange service.
 
-![Dashboard Store — plataforma durante o teste com HPA](../devops/hpa/kind-hpa-grafana.png)
+![Store — plataforma dashboard on EKS during the HPA test](../devops/hpa/eks-hpa-grafana.png)
 
-Para esse teste o dashboard ganhou o painel **Réplicas no ar ao longo do tempo (HPA)**
-(`sum by (job) (up{job=~"gateway|exchange"})`, em degraus), e o painel "Erros 5xx" passou a mostrar
-**0 %** em vez de *No data* quando não há nenhum erro (`... or vector(0)` no numerador).
+The same test, rehearsed earlier on a kind cluster ([local trial run](../devops/load-testing.md#ensaio-local-kind)),
+showed the same pattern: 2 → 6 replicas in ≈ 1 min, 0 % errors.
 
-!!! tip "Sugestão para o gateway (Leonardo)"
+For this test the dashboard gained the **Réplicas no ar ao longo do tempo (HPA)** panel
+(`sum by (job) (up{job=~"gateway|exchange"})`, as steps), and the "Erros 5xx" panel now shows
+**0 %** instead of *No data* when there are no errors (`... or vector(0)` in the numerator).
 
-    Ligar `spring.cloud.gateway.server.webflux.metrics.enabled=true` no gateway publicaria
-    `spring_cloud_gateway_requests_seconds` com o `routeId`, o que permitiria quebrar a latência por
-    rota (auth × account × exchange). Também `management.metrics.distribution.percentiles-histogram.http.server.requests=true`
-    daria p95/p99 do lado do servidor.
+!!! tip "Suggestion for the gateway (Leonardo)"
 
-## Configuração
+    Turning on `spring.cloud.gateway.server.webflux.metrics.enabled=true` in the gateway would publish
+    `spring_cloud_gateway_requests_seconds` with the `routeId`, which would allow breaking latency down by
+    route (auth × account × exchange). Also, `management.metrics.distribution.percentiles-histogram.http.server.requests=true`
+    would give server-side p95/p99.
+
+## Configuration { #configuracao }
 
 === "setup/prometheus.yml"
 

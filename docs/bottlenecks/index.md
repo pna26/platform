@@ -1,14 +1,14 @@
 # Bottlenecks
 
-Gargalos identificados na plataforma e o que foi feito em cada um (o enunciado pede ao menos 2 por
-integrante).
+Bottlenecks identified in the platform and what was done about each one (the assignment asks for at
+least 2 per member).
 
-| Gargalo | Problema | Mitigação | Responsável | Status |
+| Bottleneck | Problem | Mitigation | Owner | Status |
 |---|---|---|---|---|
-| [Balanceamento de carga](load-balancing.md) | Um gateway só é ponto único de falha e de capacidade | Nginx na frente de N réplicas do gateway (compose e EKS) | Leonardo | pronto |
-| [Cache](cache.md) | Toda requisição autenticada chamava o Auth (`/auth/solve`) | Redis compartilhado entre as réplicas: token → id da conta | Leonardo | pronto |
-| [Varredura de vulnerabilidades](vulnerability-scanning.md) | Dependências, imagens e manifestos com falhas conhecidas | Trivy (SCA, imagem, segredos, IaC) no pipeline + OWASP ZAP (DAST) | Leonardo | pronto |
-| [Cache da cotação](exchange-cache.md) | Toda cotação chamava a API externa (latência de terceiros, limite de requisições) | Cache em memória por par: TTL 30 s, lock contra *stampede*, *stale-if-error* | Gabriel | pronto |
-| [Observabilidade](observability.md) | Sem visibilidade do comportamento sob carga | Prometheus (descoberta de todas as réplicas) + Grafana com dashboard versionado, no compose e no EKS | Gabriel | pronto |
-| [Mensageria](messaging.md) | E-mail de boas-vindas no caminho do cadastro: latência e queda do provedor viram latência e queda do cadastro | Kafka: o account publica `AccountCreated` (transactional outbox) e o notification-service consome de forma idempotente, com retries e DLT | Nicolas | pronto (compose e EKS, com deploy pelo CI em 16/11) |
-| [Autorização (RBAC)](rbac.md) | Qualquer usuário logado listava, via e apagava as contas de outras pessoas | Papel (`USER`/`ADMIN`) no Account, claim `role` no JWT e regras no gateway: `USER` só vê a própria conta (403 no resto) | Nicolas | pronto (compose) |
+| [Load balancing](load-balancing.md) | A single gateway is a single point of failure and of capacity | Nginx in front of N gateway replicas (compose and EKS) | Leonardo | done |
+| [Cache](cache.md) | Every authenticated request called Auth (`/auth/solve`) | Redis shared across the replicas: token → account id | Leonardo | done |
+| [Vulnerability scanning](vulnerability-scanning.md) | Dependencies, images and manifests with known flaws | Trivy (SCA, image, secrets, IaC) in the pipeline + OWASP ZAP (DAST) | Leonardo | done |
+| [Exchange rate cache](exchange-cache.md) | Every quote called the external API (third-party latency, rate limit) | In-memory cache per pair: 30 s TTL, lock against *stampede*, *stale-if-error* | Gabriel | done |
+| [Observability](observability.md) | No visibility into behavior under load | Prometheus (discovers every replica) + Grafana with a versioned dashboard, on compose and on EKS | Gabriel | done |
+| [Messaging](messaging.md) | Welcome e-mail on the sign-up path: provider latency and outages become sign-up latency and outages | Kafka: account publishes `AccountCreated` (transactional outbox) and notification-service consumes it idempotently, with retries and DLT | Nicolas | done (compose and EKS, with deploy from CI on 16/11) |
+| [Authorization (RBAC)](rbac.md) | Any logged-in user could list, view and delete other people's accounts | Role (`USER`/`ADMIN`) in Account, `role` claim in the JWT and rules in the gateway: `USER` only sees their own account (403 for the rest) | Nicolas | done (compose) |

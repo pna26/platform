@@ -1,89 +1,89 @@
 # Cache (Redis)
 
-!!! info "Responsável: Leonardo"
+!!! info "Owner: Leonardo"
 
-## Problema
+## Problem { #problema }
 
-Sem cache, **toda** requisição autenticada faz o gateway chamar o Auth (`POST /auth/solve`) antes de
-seguir para o serviço de destino. O Auth vira um gargalo e um ponto de falha no caminho de todas as
-rotas, mesmo quando o mesmo usuário repete o mesmo token centenas de vezes.
+Without a cache, **every** authenticated request makes the gateway call Auth (`POST /auth/solve`) before
+moving on to the target service. Auth becomes a bottleneck and a point of failure on the path of every
+route, even when the same user repeats the same token hundreds of times.
 
-E como o gateway tem várias réplicas atrás do Nginx, um cache **em memória** de cada JVM não
-resolveria: a réplica 2 não veria o que a réplica 1 já validou.
+And since the gateway has several replicas behind Nginx, an **in-memory** cache in each JVM would not
+solve it: replica 2 would not see what replica 1 already validated.
 
-## Solução
+## Solution { #solucao }
 
-Padrão **cache-aside** com um **Redis compartilhado** por todas as réplicas do gateway:
+**Cache-aside** pattern with a **Redis shared** by all gateway replicas:
 
 ``` mermaid
 flowchart LR
-    gw["gateway<br/>(qualquer réplica)"] -->|"1. GET gateway:token:&lt;sha256&gt;"| redis[(Redis)]
-    redis -->|"2a. hit → id da conta"| gw
+    gw["gateway<br/>(any replica)"] -->|"1. GET gateway:token:&lt;sha256&gt;"| redis[(Redis)]
+    redis -->|"2a. hit → account id"| gw
     redis -->|"2b. miss"| gw
-    gw -->|"3. POST /auth/solve (só no miss)"| auth[Auth]
+    gw -->|"3. POST /auth/solve (only on miss)"| auth[Auth]
     auth -->|"4. idAccount"| gw
     gw -->|"5. SET ... EX min(5 min, exp)"| redis
 ```
 
-| Decisão | Motivo |
+| Decision | Reason |
 |---|---|
-| Chave = `gateway:token:` + **SHA-256 do JWT** | O Redis nunca guarda o token em si; quem ler o Redis não consegue reutilizar tokens. |
-| TTL = **menor** entre 5 min e o `exp` do JWT | Um token expirado nunca continua valendo por causa do cache. |
-| Só guarda tokens **válidos** | Token inválido não vai para o cache: continua sendo recusado pelo Auth (401). |
-| Redis fora do ar → segue **sem cache** | O cache é otimização: se cair, o gateway volta a chamar o Auth (a validação continua obrigatória). O health do Redis foi desligado no actuator para o gateway não ficar "DOWN" por causa disso. |
-| Métrica `gateway_token_cache_total{result=hit\|miss\|error}` | Mostra no Prometheus/Grafana quantas validações o cache economizou. |
-| `TOKEN_CACHE_ENABLED=false` | Permite comparar com e sem cache no teste de carga. |
+| Key = `gateway:token:` + **SHA-256 of the JWT** | Redis never stores the token itself; whoever reads Redis cannot reuse tokens. |
+| TTL = the **lower** of 5 min and the JWT `exp` | An expired token never stays valid because of the cache. |
+| Only stores **valid** tokens | An invalid token does not go into the cache: it keeps being rejected by Auth (401). |
+| Redis down → carries on **without cache** | The cache is an optimization: if it goes down, the gateway goes back to calling Auth (validation is still mandatory). The Redis health check was turned off in the actuator so the gateway does not show "DOWN" because of it. |
+| Metric `gateway_token_cache_total{result=hit\|miss\|error}` | Shows in Prometheus/Grafana how many validations the cache saved. |
+| `TOKEN_CACHE_ENABLED=false` | Allows comparing with and without cache in the load test. |
 
-!!! note "Limite conhecido"
+!!! note "Known limitation"
 
-    O JWT é *stateless*: depois do logout o cookie é apagado no navegador, mas o token continua
-    válido até o `exp` (com ou sem cache). O cache não piora isso, porque o TTL nunca passa do `exp`.
+    The JWT is *stateless*: after logout the cookie is deleted in the browser, but the token stays
+    valid until `exp` (with or without cache). The cache does not make this worse, because the TTL never goes past `exp`.
 
-## Código
+## Code { #codigo }
 
 ``` { .java .copy linenums="1" title="TokenCache.java" }
 --8<-- "api/gateway-service/src/main/java/store/gateway/security/TokenCache.java"
 ```
 
-No `AuthorizationFilter`, o cache entra antes da chamada ao Auth:
+In `AuthorizationFilter`, the cache comes in before the call to Auth:
 
-``` { .java .copy title="AuthorizationFilter.java (trecho)" }
+``` { .java .copy title="AuthorizationFilter.java (excerpt)" }
 --8<-- "api/gateway-service/src/main/java/store/gateway/security/AuthorizationFilter.java:78:89"
 ```
 
-``` { .yaml .copy title="compose.yaml (trecho)" }
+``` { .yaml .copy title="compose.yaml (excerpt)" }
   redis:
     image: redis:7-alpine
     command: redis-server --appendonly yes
 ```
 
-No EKS o Redis roda sem persistência e com `maxmemory 200mb` + `allkeys-lru` (é só cache):
+On EKS, Redis runs without persistence and with `maxmemory 200mb` + `allkeys-lru` (it is only a cache):
 [`k8s/redis.yaml`](https://github.com/pna26/platform/blob/main/k8s/redis.yaml){target="_blank"}.
 
-## Resultados
+## Results { #resultados }
 
-Medidos localmente (Docker Desktop, Mac M-series), com `ab -n 3000 -c 20` numa rota protegida e
-2 réplicas do gateway:
+Measured locally (Docker Desktop, Mac M-series), with `ab -n 3000 -c 20` on a protected route and
+2 gateway replicas:
 
-| Métrica | Valor |
+| Metric | Value |
 |---|---|
-| Requisições autenticadas | 3001 |
-| Resolvidas pelo Redis (`hit`) | **3000** |
-| Chamadas ao Auth (`miss`) | **1** |
+| Authenticated requests | 3001 |
+| Resolved by Redis (`hit`) | **3000** |
+| Calls to Auth (`miss`) | **1** |
 
-Ou seja, o Auth saiu do caminho de 99,97 % das requisições. Com o Redis parado
-(`docker compose stop redis`) o gateway continuou respondendo `200` com token válido e `401` sem token,
-só registrando `redis indisponível, seguindo sem cache` no log.
+In other words, Auth was taken off the path of 99.97% of requests. With Redis stopped
+(`docker compose stop redis`) the gateway kept responding `200` with a valid token and `401` without a token,
+only logging `redis indisponível, seguindo sem cache`.
 
-!!! warning "Latência"
+!!! warning "Latency"
 
-    Na máquina local a **latência** com e sem cache ficou dentro do ruído (≈ 700–1600 req/s nas duas
-    configurações), porque todos os containers dividem a mesma CPU e o `/auth/solve` é só uma
-    verificação HMAC: ir ao Redis custa quase o mesmo que ir ao Auth. O ganho aqui é **tirar carga do
-    Auth** (e do Account, quando o Auth precisar consultá-lo). O efeito em latência deve ser medido no
-    EKS, no [teste de carga](../devops/load-testing.md), comparando `TOKEN_CACHE_ENABLED=true` e `false`.
+    On the local machine, **latency** with and without cache was within the noise (≈ 700–1600 req/s in both
+    configurations), because all containers share the same CPU and `/auth/solve` is just an
+    HMAC check: going to Redis costs almost the same as going to Auth. The gain here is **taking load off
+    Auth** (and off Account, when Auth needs to query it). The latency effect should be measured on
+    EKS, in the [load test](../devops/load-testing.md), comparing `TOKEN_CACHE_ENABLED=true` and `false`.
 
-Para conferir o cache:
+To check the cache:
 
 ``` bash
 docker compose exec redis redis-cli --scan --pattern 'gateway:token:*'

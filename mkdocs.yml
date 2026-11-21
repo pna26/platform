@@ -8,7 +8,7 @@ edit_uri: edit/main/docs/
 
 theme:
   name: material
-  language: pt-BR
+  language: en
   palette:
     # Light mode
     - scheme: default
@@ -110,6 +110,36 @@ markdown_extensions:
   - tables
 
 plugins:
+  - i18n:
+      docs_structure: suffix
+      fallback_to_default: true
+      # seletor de idioma em extra.alternate (o automático não funciona com navigation.instant)
+      reconfigure_material: false
+      reconfigure_search: true
+      languages:
+        - locale: en
+          default: true
+          name: English
+          build: true
+        - locale: pt
+          name: Português
+          build: true
+          nav_translations:
+            Architecture: Arquitetura
+            How to run: Como rodar
+            Microservices: Microsserviços
+            Load balancing: Balanceamento de carga
+            Exchange rate cache: Cache da cotação (Exchange)
+            Vulnerability scanning: Varredura de vulnerabilidades
+            Observability: Observabilidade
+            Messaging: Mensageria
+            Authorization (RBAC): Autorização (RBAC)
+            DevOps and cloud: DevOps e nuvem
+            Load testing: Testes de carga
+            PaaS, costs and SLA: PaaS, custos e SLA
+            Use of AI: Uso de IA
+            Presentation: Apresentação
+            This documentation: Esta documentação
   - glightbox
   - git-revision-date-localized:
       enable_creation_date: true
@@ -133,28 +163,37 @@ extra_javascript:
 
 nav:
   - Home: index.md
-  - Arquitetura: arquitetura.md
-  - Como rodar: como-rodar.md
-  - Microsserviços:
+  - Architecture: arquitetura.md
+  - How to run: como-rodar.md
+  - Microservices:
       - Gateway: servicos/gateway.md
       - Auth: servicos/auth.md
       - Account: servicos/account.md
       - Exchange: servicos/exchange.md
   - Bottlenecks:
       - bottlenecks/index.md
-      - Balanceamento de carga: bottlenecks/load-balancing.md
+      - Load balancing: bottlenecks/load-balancing.md
       - Cache (Redis): bottlenecks/cache.md
-      - Cache da cotação (Exchange): bottlenecks/exchange-cache.md
-      - Varredura de vulnerabilidades: bottlenecks/vulnerability-scanning.md
-      - Observabilidade: bottlenecks/observability.md
-      - Mensageria: bottlenecks/messaging.md
-      - Autorização (RBAC): bottlenecks/rbac.md
-  - DevOps e nuvem:
+      - Exchange rate cache: bottlenecks/exchange-cache.md
+      - Vulnerability scanning: bottlenecks/vulnerability-scanning.md
+      - Observability: bottlenecks/observability.md
+      - Messaging: bottlenecks/messaging.md
+      - Authorization (RBAC): bottlenecks/rbac.md
+  - DevOps and cloud:
       - CI/CD: devops/ci-cd.md
       - AWS: devops/aws.md
       - EKS: devops/eks.md
-      - Testes de carga: devops/load-testing.md
-      - PaaS, custos e SLA: devops/custos-sla.md
-  - Uso de IA: uso-de-ia.md
-  - Apresentação: apresentacao.md
-  - Esta documentação: thisdocumentation.md
+      - Load testing: devops/load-testing.md
+      - PaaS, costs and SLA: devops/custos-sla.md
+  - Use of AI: uso-de-ia.md
+  - Presentation: apresentacao.md
+  - This documentation: thisdocumentation.md
+
+extra:
+  alternate:
+    - name: English
+      link: /platform/
+      lang: en
+    - name: Português
+      link: /platform/pt/
+      lang: pt

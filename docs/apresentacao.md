@@ -1,66 +1,42 @@
-# Apresentação
+# Presentation
 
-!!! warning "Rascunho — revisar em grupo"
+A **1 to 2 minute** video showing the project and the bottlenecks, as required by the course. No narration: each scene has
+a short caption explaining what is on screen.
 
-    Estrutura e roteiro propostos pelo Leonardo a partir das páginas da documentação. Cada integrante
-    revisa e ajusta a sua parte; o vídeo entra no fim da página depois do dia do EKS.
+## Presentation video (1–2 min) { #video-de-apresentacao-12-min }
 
-Tópicos pedidos pelo curso: introdução, arquitetura, demonstração, desafios (bottlenecks), conclusão e
-próximos passos. Vídeo de **1 a 2 minutos** com o projeto e os bottlenecks.
+<video controls preload="metadata" width="100%" src="../assets/apresentacao-pna26.mp4"></video>
 
-## Roteiro do vídeo (≈ 2 min)
+## Script { #roteiro }
 
-| Tempo | Quem | Fala / tela |
+| Time | Scene | What is shown |
 |---|---|---|
-| 0:00–0:15 | Leonardo | **Introdução.** Loja em microsserviços: cadastro, login e câmbio, tudo entrando por um gateway. Grupo pna26 (Leonardo, Nicolas, Gabriel). |
-| 0:15–0:35 | Leonardo | **Arquitetura** (diagrama da [Home](index.md)): Nginx → réplicas do gateway → Auth, Account, Exchange; Redis, PostgreSQL/RDS, Kafka; tudo no EKS, com deploy pelo GitHub Actions. |
-| 0:35–1:05 | Nicolas | **Demonstração no EKS:** `kubectl get pods -n store`, cadastro e login pelo ELB, `GET /accounts` com e sem token (401), câmbio. E-mail de boas-vindas chegando pelo Kafka. |
-| 1:05–1:45 | todos | **Bottlenecks**, cada um os seus (tabela abaixo), com o número que mostra o efeito. Teste de carga com o HPA escalando o gateway. |
-| 1:45–2:00 | Gabriel | **Custos e conclusão:** ≈ US$ 0,29/h com tudo ligado ([Custos](devops/custos-sla.md)), cluster apagado fora dos testes; próximos passos. |
+| 0:00–0:04 | Opening | Group pna26 (Leonardo, Gabriel, Nicolas), the course, and the project: a microservices store |
+| 0:04–0:21 | Architecture, CI/CD, and EKS | Diagram from the [Home](index.md) page: Nginx → gateway replicas → Auth, Account, Exchange; Redis, PostgreSQL (RDS), and Kafka. The [CI/CD](devops/ci-cd.md) pipeline and the [EKS](devops/eks.md) VPC |
+| 0:21–0:50 | Platform on EKS, live through the ELB | `health-check` answered by 2 gateway replicas, sign-up, login with an `HttpOnly` cookie (token hidden), `GET /auth/me` with the token, `401` without a token and with a forged `id-account`, RBAC (`200` on one's own account, `403` when listing other users' accounts) |
+| 0:50–1:23 | Bottlenecks | One per page, with the number that shows the effect (table below) |
+| 1:23–1:35 | Load test with HPA on EKS | Recording from 19/11: k6 with 100 users and the HPA scaling the gateway from 2 to 6 replicas, 0 % failed HTTP requests, p95 of 254 ms ([result](devops/load-testing.md#resultado-no-eks)) |
+| 1:35–1:46 | Costs and next steps | ≈ US$ 0.29/h with everything running ([Costs](devops/custos-sla.md)); HTTPS with a custom domain, Multi-AZ on RDS, connection pooling in Auth, Kafka with persistent storage |
 
-## Bottlenecks (o que mostrar)
+Final length: **1 min 45 s**. The live demo was recorded on 20/11/2026 with `eks-store` up
+(deployed by CI); the exchange rate was left out of it because the deployed exchange service still used AwesomeAPI, which
+returns `429` to AWS (see [Exchange](servicos/exchange.md)).
 
-| Bottleneck | Quem | Número para mostrar | Página |
+## Bottlenecks in the video { #bottlenecks-no-video }
+
+| Bottleneck | Who | Number shown | Page |
 |---|---|---|---|
-| Balanceamento de carga | Leonardo | Nginx distribuindo entre N réplicas do gateway; réplicas novas entram sem `reload` | [Balanceamento](bottlenecks/load-balancing.md) |
-| Cache do token (Redis) | Leonardo | 3.001 requisições autenticadas → **1** chamada ao Auth (3.000 hits) | [Cache](bottlenecks/cache.md) |
-| Varredura de vulnerabilidades | Leonardo | Trivy bloqueia CVE CRITICAL corrigível; imagem final com 0 HIGH/CRITICAL; OWASP ZAP no gateway | [Varredura](bottlenecks/vulnerability-scanning.md) |
-| Cache da cotação | Gabriel | p95 da cotação de **49 ms → 4 ms** (−92 %) | [Cache da cotação](bottlenecks/exchange-cache.md) |
-| Observabilidade | Gabriel | Grafana explicou o teste de carga: os 0,57 % de erro (`BindException` no Auth) e, com o HPA, as réplicas novas recebendo carga só ≈ 1,5 min depois de prontas | [Observabilidade](bottlenecks/observability.md) |
-| Mensageria (Kafka) | Nicolas | Cadastro em ~15 ms com o consumidor **ou** o Kafka fora; 0 eventos perdidos, 0 e-mails duplicados | [Mensageria](bottlenecks/messaging.md) |
+| Load balancing | Leonardo | Nginx distributing across N gateway replicas; new replicas join without a `reload` | [Load balancing](bottlenecks/load-balancing.md) |
+| Token cache (Redis) | Leonardo | 3,001 authenticated requests → **1** call to Auth (3,000 hits) | [Cache](bottlenecks/cache.md) |
+| Vulnerability scanning | Leonardo | Trivy blocks fixable CRITICAL CVEs; final image with 0 HIGH/CRITICAL; OWASP ZAP on the gateway | [Scanning](bottlenecks/vulnerability-scanning.md) |
+| Exchange rate cache | Gabriel | Exchange rate p95 from **49 ms → 4 ms** (−92 %) | [Exchange rate cache](bottlenecks/exchange-cache.md) |
+| Observability | Gabriel | Grafana per replica: with the HPA, new replicas only receive load ≈ 1.5 min after becoming ready | [Observability](bottlenecks/observability.md) |
+| Messaging (Kafka) | Nicolas | Sign-up in ~15 ms with the consumer **or** Kafka down; 0 lost events, 0 duplicate emails | [Messaging](bottlenecks/messaging.md) |
+| Authorization (RBAC) | Nicolas | A `USER` account gets `403` when listing other users' accounts and `200` on its own (live, through the ELB) | [RBAC](bottlenecks/rbac.md) |
 
-### Falas do Gabriel (proposta, ≈ 35 s no total)
+## How the video was made { #como-o-video-foi-feito }
 
-**Cache da cotação (≈ 10 s, tela: tabela de [Cache da cotação](bottlenecks/exchange-cache.md#resultados)).**
-"O Exchange depende de uma API de câmbio de terceiros, com limite de requisições. Guardando a cotação
-por 30 segundos, o p95 caiu de 49 para 4 milissegundos, e cada réplica chama a API externa no máximo
-duas vezes por minuto para cada par de moedas, não importa a carga."
-
-**Observabilidade (≈ 10 s, tela: Grafana durante o teste com HPA).**
-"Prometheus e Grafana mostram cada réplica separada. No teste com HPA, o gateway foi de 2 para 6
-réplicas em um minuto, sem nenhum erro, e o painel por réplica mostrou o que o k6 não mostra: as réplicas
-novas só recebem a parte delas da carga ≈ 1 minuto e meio depois, porque o Kubernetes balanceia conexões,
-não requisições."
-
-**Custos e conclusão (≈ 15 s, tela: tabela de custos).**
-"Tudo isso custa uns 29 centavos de dólar por hora no EKS, por isso o cluster só fica ligado para testar.
-Para uma plataforma deste tamanho, Fargate ou uma PaaS sairia mais barato; o EKS compensa com mais
-serviços dividindo os nós. Próximos passos: HTTPS, Multi-AZ no banco e o pool de conexões no Auth."
-
-## Slides
-
-1. **Introdução** — o problema (loja que precisa escalar e ser segura) e o grupo.
-2. **Arquitetura** — diagrama, camada confiável (só o `lb` é exposto), contrato da API
-   ([Arquitetura](arquitetura.md)).
-3. **Demonstração** — vídeo ou ao vivo no EKS ([EKS](devops/eks.md)).
-4. **CI/CD** — pipeline reutilizável: testes, Trivy, imagem multi-arch, deploy no EKS via OIDC
-   ([CI/CD](devops/ci-cd.md)).
-5. **Bottlenecks** — a tabela acima, um slide por integrante.
-6. **Teste de carga e SLA** — cenários, HPA, SLO e custos ([Testes de carga](devops/load-testing.md),
-   [Custos e SLA](devops/custos-sla.md)).
-7. **Conclusão e próximos passos** — HTTPS com domínio próprio, Kafka com disco persistente (ou MSK), lag do
-   consumidor no Prometheus, pool de conexões no Feign do Auth.
-
-## Vídeo
-
-<!-- vídeo: <iframe width="100%" height="470" src="https://www.youtube.com/embed/<id>" allowfullscreen></iframe> -->
+The scenes from this documentation's pages were recorded with **Playwright** (an automated browser, with the
+caption placed on the page itself); the EKS demo uses only HTTP through the public ELB, like any
+regular user, with the JWT and the demo account's password hidden on screen. **ffmpeg** stitches the scenes into an
+MP4 (H.264, 1280×720).

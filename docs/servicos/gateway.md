@@ -1,61 +1,61 @@
 # Gateway
 
-!!! info "Responsável: Leonardo · Repositório: [pna26/gateway-service](https://github.com/pna26/gateway-service){target='_blank'}"
+!!! info "Owner: Leonardo · Repository: [pna26/gateway-service](https://github.com/pna26/gateway-service){target='_blank'}"
 
-O gateway é o **ponto único de entrada** da plataforma. Ele:
+The gateway is the platform's **single entry point**. It:
 
-1. **roteia** cada caminho para o microsserviço certo (`/auth/**`, `/accounts/**`, `/exchange/**`);
-2. **autoriza**: em toda rota que não é aberta, exige o cookie `__store_jwt_token`, valida o token no
-   Auth (`POST /auth/solve`) e repassa o id da conta no header `id-account`;
-3. **descarta** qualquer `id-account` enviado pelo cliente, para ninguém se passar por outra conta;
-4. guarda no **Redis** o resultado da validação do token (bottleneck de [cache](../bottlenecks/cache.md));
-5. expõe `GET /health-check` com o hostname da réplica (mostra o [balanceamento](../bottlenecks/load-balancing.md)).
+1. **routes** each path to the right microservice (`/auth/**`, `/accounts/**`, `/exchange/**`);
+2. **authorizes**: on every route that is not open, it requires the `__store_jwt_token` cookie, validates the token
+   with Auth (`POST /auth/solve`) and forwards the account id in the `id-account` header;
+3. **drops** any `id-account` sent by the client, so nobody can impersonate another account;
+4. stores the token validation result in **Redis** ([cache](../bottlenecks/cache.md) bottleneck);
+5. exposes `GET /health-check` with the replica's hostname (shows the [load balancing](../bottlenecks/load-balancing.md)).
 
-É implementado com **Spring Cloud Gateway** sobre **WebFlux** (reativo), como no hands-on 2 e 3 do curso.
+It is built with **Spring Cloud Gateway** on top of **WebFlux** (reactive), as in hands-on 2 and 3 of the course.
 
-## Rotas
+## Routes { #rotas }
 
-| Caminho | Destino | Token? |
+| Path | Destination | Token? |
 |---|---|---|
-| `POST /auth/register`, `POST /auth/login`, `GET /auth/logout` | `auth:8080` | não |
-| demais `/auth/**` | `auth:8080` | sim |
-| `/accounts/**` | `account:8080` | sim |
-| `/exchange/**` | `exchange:8080` | sim |
-| `/exchanges/**` | `exchange:8080`, reescrito para `/exchange/**` | sim |
-| `GET /health-check` | o próprio gateway | não |
-| `/gateway/actuator/health`, `/gateway/actuator/prometheus` | o próprio gateway | não (o `lb` bloqueia o `prometheus` para fora) |
+| `POST /auth/register`, `POST /auth/login`, `GET /auth/logout` | `auth:8080` | no |
+| other `/auth/**` | `auth:8080` | yes |
+| `/accounts/**` | `account:8080` | yes |
+| `/exchange/**` | `exchange:8080` | yes |
+| `/exchanges/**` | `exchange:8080`, rewritten to `/exchange/**` | yes |
+| `GET /health-check` | the gateway itself | no |
+| `/gateway/actuator/health`, `/gateway/actuator/prometheus` | the gateway itself | no (`lb` blocks `prometheus` from outside) |
 
-Os destinos vêm de variáveis de ambiente (`AUTH_URI`, `ACCOUNT_URI`, `EXCHANGE_URI`), com os nomes
-dos serviços do compose/k8s como padrão.
+Destinations come from environment variables (`AUTH_URI`, `ACCOUNT_URI`, `EXCHANGE_URI`), defaulting to the
+compose/k8s service names.
 
-## Decisão de autorização
+## Authorization decision { #decisao-de-autorizacao }
 
 ``` mermaid
 flowchart TD
-    A[Requisição] --> B{rota aberta?<br/>RouterValidator}
-    B -- sim --> OK[encaminha ao serviço]
-    B -- não --> C{cookie<br/>__store_jwt_token?}
-    C -- não --> E401[401]
-    C -- sim --> D{token no Redis?}
-    D -- sim --> H[header id-account = id em cache]
-    D -- não --> F[POST /auth/solve]
+    A[Request] --> B{open route?<br/>RouterValidator}
+    B -- yes --> OK[forward to service]
+    B -- no --> C{cookie<br/>__store_jwt_token?}
+    C -- no --> E401[401]
+    C -- yes --> D{token in Redis?}
+    D -- yes --> H[header id-account = cached id]
+    D -- no --> F[POST /auth/solve]
     F -- 4xx --> E401
-    F -- erro/timeout --> E503[503]
-    F -- 200 --> G[grava no Redis<br/>TTL = min 5 min, exp]
+    F -- error/timeout --> E503[503]
+    F -- 200 --> G[store in Redis<br/>TTL = min 5 min, exp]
     G --> H
     H --> OK
 ```
 
-Diferenças em relação ao código do hands-on 3:
+Differences from the hands-on 3 code:
 
-| Hands-on 3 | Aqui | Por quê |
+| Hands-on 3 | Here | Why |
 |---|---|---|
-| `GlobalFilter` sem ordem | `Ordered` com ordem 100 | Garante que roda **depois** do `RemoveRequestHeader=id-account` (default-filters têm ordem 1, 2…), senão o header que o próprio gateway adiciona seria apagado. |
-| `throw ResponseStatusException` | resposta `401`/`503` escrita direto | Evita stack trace no log a cada token inválido e diferencia "token ruim" (401) de "Auth fora do ar" (503). |
-| `WebClient.builder()` novo a cada requisição | um `AuthClient` com `WebClient` reaproveitado e timeout de 3 s | Menos objetos por requisição e o gateway não fica pendurado se o Auth travar. |
-| sem cache | `TokenCache` (Redis) | Ver [Cache](../bottlenecks/cache.md). |
+| `GlobalFilter` without order | `Ordered` with order 100 | Ensures it runs **after** `RemoveRequestHeader=id-account` (default-filters have order 1, 2…); otherwise the header the gateway itself adds would be removed. |
+| `throw ResponseStatusException` | `401`/`503` response written directly | Avoids a stack trace in the log for every invalid token and distinguishes "bad token" (401) from "Auth down" (503). |
+| new `WebClient.builder()` on every request | one `AuthClient` with a reused `WebClient` and a 3 s timeout | Fewer objects per request, and the gateway does not hang if Auth stalls. |
+| no cache | `TokenCache` (Redis) | See [Cache](../bottlenecks/cache.md). |
 
-## Código
+## Code { #codigo }
 
 === "AuthorizationFilter.java"
 
@@ -99,30 +99,30 @@ Diferenças em relação ao código do hands-on 3:
     --8<-- "api/gateway-service/k8s/k8s.yaml"
     ```
 
-## Testes
+## Tests { #testes }
 
-`mvn verify` roda 20 testes (também no CI, a cada push):
+`mvn verify` runs 20 tests (also in CI, on every push):
 
-| Classe | O que cobre |
+| Class | What it covers |
 |---|---|
-| `RouterValidatorTest` | rotas abertas do contrato, método errado, barra no fim, curinga `/**` |
-| `TokenCacheTest` | a chave é o SHA-256 (não o token), leitura do `exp`, TTL nunca passa do `exp` |
-| `AuthorizationFilterTest` | rota aberta, sem cookie → 401, token válido → `id-account`, cache hit não chama o Auth, token inválido → 401, Auth fora → 503 |
-| `GatewayRoutingTest` | sobe o gateway de verdade contra um Auth/Account falsos (servidor HTTP do JDK): roteamento, 401, `id-account` forjado descartado, `/exchanges` → `/exchange` |
+| `RouterValidatorTest` | open routes from the contract, wrong method, trailing slash, `/**` wildcard |
+| `TokenCacheTest` | the key is the SHA-256 (not the token), reading `exp`, TTL never goes past `exp` |
+| `AuthorizationFilterTest` | open route, no cookie → 401, valid token → `id-account`, cache hit does not call Auth, invalid token → 401, Auth down → 503 |
+| `GatewayRoutingTest` | starts the real gateway against a fake Auth/Account (JDK HTTP server): routing, 401, forged `id-account` dropped, `/exchanges` → `/exchange` |
 
-``` { .java .copy title="GatewayRoutingTest.java (trecho)" }
+``` { .java .copy title="GatewayRoutingTest.java (excerpt)" }
 --8<-- "api/gateway-service/src/test/java/store/gateway/GatewayRoutingTest.java:119:129"
 ```
 
-## Configuração
+## Configuration { #configuracao }
 
-| Variável | Padrão | Uso |
+| Variable | Default | Purpose |
 |---|---|---|
-| `AUTH_URI` | `http://auth:8080` | Auth (rotas e `/auth/solve`) |
+| `AUTH_URI` | `http://auth:8080` | Auth (routes and `/auth/solve`) |
 | `ACCOUNT_URI` | `http://account:8080` | Account |
 | `EXCHANGE_URI` | `http://exchange:8080` | Exchange |
-| `REDIS_HOST` / `REDIS_PORT` | `localhost` / `6379` | Cache do token |
-| `TOKEN_CACHE_ENABLED` | `true` | Liga/desliga o cache |
-| `TOKEN_CACHE_TTL` | `5m` | TTL máximo de um token no cache |
-| `AUTH_TIMEOUT` | `3s` | Timeout da chamada ao `/auth/solve` |
-| `CORS_ALLOWED_ORIGINS` | `http://localhost,...` | Origens com `allowCredentials` |
+| `REDIS_HOST` / `REDIS_PORT` | `localhost` / `6379` | Token cache |
+| `TOKEN_CACHE_ENABLED` | `true` | Turns the cache on/off |
+| `TOKEN_CACHE_TTL` | `5m` | Maximum TTL of a token in the cache |
+| `AUTH_TIMEOUT` | `3s` | Timeout of the call to `/auth/solve` |
+| `CORS_ALLOWED_ORIGINS` | `http://localhost,...` | Origins with `allowCredentials` |
