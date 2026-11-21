@@ -158,7 +158,7 @@ Para medir a capacidade real: `BASE_URL=http://<elb> ./scripts/load-test.sh` a p
 
 ## Teste no EKS com HPA
 
-O curso pede um **vídeo do teste de carga em execução com o HPA escalando**. Roteiro para o dia do EKS:
+O curso pede um **vídeo do teste de carga em execução com o HPA escalando**. Roteiro da rodada no EKS:
 k6 rodando da máquina de um integrante contra o ELB, e o **Horizontal Pod Autoscaler** criando réplicas
 do gateway quando a CPU média passa de 50 % do `request` (250m → 125m por pod).
 
@@ -222,7 +222,8 @@ para continuar gravando e mostrar a volta para 2.
 "Réplicas no ar ao longo do tempo (HPA)" mostra a subida e a volta para 2; "Requisições/s por réplica"
 e "CPU por réplica" mostram as réplicas novas entrando e dividindo a carga.
 
-**Gravar sem depender de janela:** o `scripts/hpa-record.py` ([código](#codigo)) roda os três
+**Gravar sem depender de janela:** o `scripts/eks-hpa.sh` faz tudo de uma vez ([Resultado no EKS](#resultado-no-eks)).
+Por baixo, o `scripts/hpa-record.py` ([código](#codigo)) roda os três
 terminais acima, grava o vídeo e tira os prints do Grafana sozinho (detalhes no
 [ensaio local](#ensaio-local-kind)):
 
@@ -357,7 +358,7 @@ do Auth, o heap pode chegar a 384 Mi e sobram só 128 Mi para o resto da JVM (me
 código compilado), pouco para um Spring Boot sob carga. A primeira rodada fez o heap crescer e a
 segunda passou do limite. O Account, com a mesma configuração, estava em 393 Mi de 512 Mi.
 
-- **No dia do EKS:** entre uma tomada e outra do vídeo, reiniciar o Auth e o Account
+- **No EKS:** entre uma tomada e outra do vídeo, reiniciar o Auth e o Account
   (`kubectl rollout restart deployment/auth deployment/account -n store`).
 - **Correção sugerida (Nicolas):** `-XX:MaxRAMPercentage=60` (heap até ≈ 307 Mi, ≈ 205 Mi para o resto)
   ou limite de 768 Mi no `k8s.yaml` do Auth e do Account. O `request`, que é o que o scheduler reserva,
@@ -365,16 +366,23 @@ segunda passou do limite. O Account, com a mesma configuração, estava em 393 M
 
 ### Resultado no EKS
 
-!!! warning "A medir no dia do EKS"
+A rodada no `eks-store` usa o `scripts/eks-hpa.sh` ([código](#codigo)), que confere os pré-requisitos acima,
+reinicia Auth e Account, roda o `hpa-record.py` (HPA, k6 no cenário `auth`, vídeo e prints do Grafana) e
+preenche esta seção com o `scripts/fill-eks-hpa.py`, a partir do resumo do k6 e da linha do tempo do HPA
+(`load/results/eks-hpa/resumo.json`). Nenhum número desta tabela é estimado: o que não foi medido fica "—".
 
-    Preencher com o resumo do k6 (`load/results/eks-hpa.row.md`), o número máximo de réplicas que o HPA
-    criou, quanto tempo levou para escalar, e o link do vídeo. **Não preencher com números estimados.**
+``` bash
+aws eks update-kubeconfig --name eks-store --region us-east-2
+DRY_RUN=1 ./scripts/eks-hpa.sh        # só os pré-requisitos
+./scripts/eks-hpa.sh                  # ou GATEWAY_URL=http://<elb> ./scripts/eks-hpa.sh
+```
 
 | Execução | VUs | Requisições | req/s | p50 (ms) | p95 (ms) | p99 (ms) | Erros | Réplicas (início → máx.) |
 |---|---:|---:|---:|---:|---:|---:|---:|---|
-| eks-hpa | | | | | | | | 2 → |
+| eks-hpa | — | — | — | — | — | — | — | — |
 
-<!-- vídeo do HPA: <iframe width="100%" height="470" src="https://www.youtube.com/embed/<id>" allowfullscreen></iframe> -->
+<!-- eks-hpa:inicio -->
+<!-- eks-hpa:fim -->
 
 ## Código
 
@@ -406,4 +414,16 @@ segunda passou do limite. O Account, com a mesma configuração, estava em 393 M
 
     ``` { .python .copy }
     --8<-- "scripts/hpa-record.py"
+    ```
+
+=== "scripts/eks-hpa.sh"
+
+    ``` { .bash .copy }
+    --8<-- "scripts/eks-hpa.sh"
+    ```
+
+=== "scripts/fill-eks-hpa.py"
+
+    ``` { .python .copy }
+    --8<-- "scripts/fill-eks-hpa.py"
     ```
