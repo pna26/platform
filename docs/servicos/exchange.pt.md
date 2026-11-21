@@ -8,6 +8,12 @@ venda para o usuário logado. Segue o [serviço do BACEN](https://insper.github.
 sugerido pelo professor: as APIs de câmbio gratuitas (a AwesomeAPI, usada antes) não respondem para IPs
 da AWS, e no EKS devolviam `429` para o IP do NAT.
 
+!!! note "Situação (20/11/2026)"
+
+    A implementação com a PTAX está no [pna26/exchange-service#1](https://github.com/pna26/exchange-service/pull/1){target="_blank"}
+    (44 testes passando), aguardando o merge pelo dono do repositório. Até lá, as abas de código abaixo e o
+    serviço publicado são a versão anterior (AwesomeAPI); esta página já descreve a nova.
+
 ``` mermaid
 flowchart LR
     u([Usuário]) -->|"GET /exchange/USD/BRL<br/>cookie JWT"| lb[lb · Nginx] --> gw[gateway]

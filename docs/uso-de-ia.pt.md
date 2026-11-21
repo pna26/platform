@@ -144,7 +144,6 @@ manifestos k8s do gateway, estilo da documentação).
   do quadro e as instalações com permissão de administrador.
 - **Ambiente:** login no GitHub CLI, autorização do escopo do Projects, ativação da virtualização/WSL e
   reinicialização para o Docker funcionar.
-- _A completar pelo Gabriel: revisão do código, decisões próprias e o que estudou para o walkthrough._
 
 **Onde a IA errou e foi corrigido:**
 

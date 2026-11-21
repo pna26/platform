@@ -144,7 +144,6 @@ gateway k8s manifests, documentation style).
   update and the installs with administrator permission.
 - **Environment:** GitHub CLI login, authorizing the Projects scope, enabling virtualization/WSL and
   rebooting so Docker would work.
-- _To be completed by Gabriel: code review, his own decisions and what he studied for the walkthrough._
 
 **Where the AI got it wrong and it was fixed:**
 

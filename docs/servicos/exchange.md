@@ -8,6 +8,12 @@ price to the logged-in user. It follows the [BACEN service](https://insper.githu
 suggested by the professor: the free exchange rate APIs (AwesomeAPI, used before) do not respond to AWS
 IPs, and on EKS they returned `429` for the NAT IP.
 
+!!! note "Status (20/11/2026)"
+
+    The PTAX implementation is in [pna26/exchange-service#1](https://github.com/pna26/exchange-service/pull/1){target="_blank"}
+    (44 tests passing), waiting for the repository owner to merge it. Until then, the code tabs below and
+    the deployed service are the previous version (AwesomeAPI); this page already describes the new one.
+
 ``` mermaid
 flowchart LR
     u([User]) -->|"GET /exchange/USD/BRL<br/>JWT cookie"| lb[lb · Nginx] --> gw[gateway]
