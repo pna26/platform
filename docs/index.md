@@ -51,7 +51,7 @@ Detalhes em [Arquitetura](arquitetura.md).
 | [pna26/auth-service](https://github.com/pna26/auth-service){target="_blank"} | Implementação do Auth (JWT) | Nicolas |
 | [pna26/account](https://github.com/pna26/account){target="_blank"} | Interface (Feign) e DTOs do Account | Nicolas |
 | [pna26/account-service](https://github.com/pna26/account-service){target="_blank"} | Implementação do Account (PostgreSQL + Flyway) | Nicolas |
-| [pna26/exchange-service](https://github.com/pna26/exchange-service){target="_blank"} | Câmbio (Python/FastAPI) | Gabriel |
+| [pna26/exchange-service](https://github.com/pna26/exchange-service){target="_blank"} | Câmbio (Python/FastAPI, PTAX do Banco Central) | Gabriel |
 | [pna26/notification-service](https://github.com/pna26/notification-service){target="_blank"} | Consumidor Kafka: e-mail de boas-vindas (mensageria) | Nicolas |
 
 ## Entregas

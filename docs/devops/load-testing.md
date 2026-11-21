@@ -376,6 +376,9 @@ rodando fora da AWS (no Brasil) contra o ELB:
 | **eks-hpa** (com HPA, gravada) | 100 | 149.160 | 532,7 | 153 | 254 | 356 | **0,00 %** | **2 → 6** |
 | eks-auth-200 (sem HPA) | 200 | 230.602 | 819,4 | 193 | 370 | 630 | **0,00 %** | 2 (fixo) |
 
+**Erros** é o `http_req_failed` do k6: a fração de **requisições HTTP** que falharam (status inesperado ou
+erro de conexão), medida só na fase de teste. Os 0,00 % são de requisições HTTP, não de pods.
+
 A `eks-hpa` foi gravada com o `scripts/hpa-record.py` por quem tinha `kubectl` no cluster. A
 `eks-auth-200` rodou só o k6, da máquina do Gabriel, que não tem acesso ao cluster: sem o HPA, o
 gateway ficou nas 2 réplicas do manifesto.
@@ -416,6 +419,20 @@ O que os números mostram:
   do `/health-check` pelo ELB dividiram 54 % / 46 % entre as 2 réplicas.
 - **O CPU repete o ensaio:** as réplicas novas começam com 60–85 % (a JVM aquecendo) e, quando a carga
   se divide, todas ficam entre ≈ 15 e 30 %.
+
+!!! warning "Ponto a melhorar: encerramento gracioso do gateway"
+
+    Na redução de 6 para 2 réplicas, **2 pods antigos do gateway terminaram em `Error` (`0/1`)** no
+    terminal 2 do vídeo: é o código 143 (SIGTERM) da JVM, não uma falha da aplicação, e a redução
+    aconteceu depois do fim do k6, então nenhuma requisição foi perdida nesta rodada. Mas o encerramento
+    **não foi testado com tráfego**, e o gateway não configura nada para ele: hoje o pod pode parar
+    enquanto ainda recebe requisições do Nginx. Correção proposta para o gateway:
+
+    - `server.shutdown: graceful` e `spring.lifecycle.timeout-per-shutdown-phase: 20s` no Spring Boot,
+      para terminar as requisições em andamento antes de sair;
+    - `lifecycle.preStop` com um `sleep 5` e `terminationGracePeriodSeconds: 30` no Deployment, para o
+      pod sair do Service (e do Nginx) antes de a JVM receber o SIGTERM;
+    - repetir a redução **com o k6 rodando** e conferir 0 erros também nessa fase.
 
 **Para repetir a rodada:** `./scripts/eks-hpa.sh` ([código](#codigo)) confere os pré-requisitos acima
 (kubectl 1.34+, contexto do `eks-store`, metrics-server, ELB respondendo; `DRY_RUN=1` para só conferir),
