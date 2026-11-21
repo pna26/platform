@@ -110,6 +110,36 @@ markdown_extensions:
   - tables
 
 plugins:
+  - i18n:
+      docs_structure: suffix
+      fallback_to_default: true
+      # seletor de idioma em extra.alternate (o automático não funciona com navigation.instant)
+      reconfigure_material: false
+      reconfigure_search: true
+      languages:
+        - locale: pt
+          default: true
+          name: Português
+          build: true
+        - locale: en
+          name: English
+          build: true
+          nav_translations:
+            Arquitetura: Architecture
+            Como rodar: How to run
+            Microsserviços: Microservices
+            Balanceamento de carga: Load balancing
+            Cache da cotação (Exchange): Exchange rate cache
+            Varredura de vulnerabilidades: Vulnerability scanning
+            Observabilidade: Observability
+            Mensageria: Messaging
+            Autorização (RBAC): Authorization (RBAC)
+            DevOps e nuvem: DevOps and cloud
+            Testes de carga: Load testing
+            PaaS, custos e SLA: PaaS, costs and SLA
+            Uso de IA: Use of AI
+            Apresentação: Presentation
+            Esta documentação: This documentation
   - glightbox
   - git-revision-date-localized:
       enable_creation_date: true
@@ -158,3 +188,12 @@ nav:
   - Uso de IA: uso-de-ia.md
   - Apresentação: apresentacao.md
   - Esta documentação: thisdocumentation.md
+
+extra:
+  alternate:
+    - name: Português
+      link: /platform/
+      lang: pt
+    - name: English
+      link: /platform/en/
+      lang: en

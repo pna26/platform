@@ -33,7 +33,7 @@ abaixo.
 | Revisão dos PRs do Nicolas (EKS e mensageria) | Sim — leitura dos diffs com a IA | A decisão de mergear e os comentários de revisão são meus. |
 | Revisão do teste com HPA do Gabriel (#9) e ajustes (#10) | Sim | A IA buildou a doc, conferiu o painel novo contra o Prometheus do k8s e achou que o `kubectl autoscale --cpu=50%` não existe antes do kubectl 1.34 (o meu era 1.33). O `keepalive_time 10s` no `lb` veio do achado do Gabriel; validado com `nginx -t` na imagem do manifesto. |
 | HTTPS na [Arquitetura](arquitetura.md), status da Home e roteiro da [Apresentação](apresentacao.md) | Sim | Montados a partir do código (cookie do Auth), do enunciado do curso e do estado dos repositórios. |
-| Vídeo de apresentação e entrega de 20/11 (roteiro, gravação das páginas com Playwright, montagem com ffmpeg, `scripts/eks-hpa.sh` e `scripts/fill-eks-hpa.py`) | Sim | A IA escreveu os scripts e gravou as cenas da documentação. A demonstração no EKS só usa HTTP pelo ELB, com JWT e senha ocultos na tela. A tabela do EKS só recebe números do resumo do k6 e do HPA: o que não foi medido fica "—". |
+| Vídeo de apresentação e entrega de 20/11 (roteiro, gravação das páginas com Playwright, montagem com ffmpeg, `scripts/eks-hpa.sh` e `scripts/fill-eks-hpa.py`) e tradução para o inglês (Home, bottlenecks) | Sim | A IA escreveu os scripts e gravou as cenas da documentação. A demonstração no EKS só usa HTTP pelo ELB, com JWT e senha ocultos na tela. A tabela do EKS só recebe números do resumo do k6 e do HPA: o que não foi medido fica "—". |
 
 **O que eu (Leonardo) fiz sem IA:**
 
