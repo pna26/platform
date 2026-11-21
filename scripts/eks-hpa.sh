@@ -2,7 +2,8 @@
 # Teste de carga com HPA no EKS, de ponta a ponta (roteiro em docs/devops/load-testing.md#teste-no-eks-com-hpa):
 #   1. confere os pré-requisitos (kubectl >= 1.34, contexto do eks-store, metrics-server, Service lb);
 #   2. roda o scripts/hpa-record.py (HPA + k6 no cenário auth + vídeo + prints do Grafana);
-#   3. preenche a tabela "Resultado no EKS" com o scripts/fill-eks-hpa.py.
+#   3. monta o resultado com o scripts/fill-eks-hpa.py (linha da tabela + linha do tempo, só números
+#      medidos); como a seção já tem a rodada de 19/11, ele só imprime o trecho para colar.
 #
 #   ./scripts/eks-hpa.sh                                   # descobre o ELB pelo Service lb
 #   GATEWAY_URL=http://<elb> ./scripts/eks-hpa.sh          # ou usa a URL informada
@@ -66,6 +67,6 @@ kubectl rollout status deployment/account -n "$NS" --timeout=180s
   --namespace "$NS" --min "$MIN" --max "$MAX" --cpu "$CPU" --vus "$VUS" --duration "$DURATION" \
   --scenario auth --browser "$BROWSER"
 
-# 3. tabela da documentação
+# 3. resultado para a documentação
 "$PY" scripts/fill-eks-hpa.py --name "$NAME"
-echo ">> confira: git diff docs/devops/load-testing.md && mkdocs build --strict"
+echo ">> confira o trecho acima e o load/results/$NAME/; depois mkdocs build --strict"

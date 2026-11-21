@@ -101,12 +101,15 @@ k6 only showed from the outside:
 
 ### During the HPA test { #durante-o-teste-com-hpa }
 
-Local trial run of the HPA test ([script and result](../devops/load-testing.md#ensaio-local-kind)),
-from the start of k6 to the end of the load: the gateway scales from 2 to 6 replicas in ≈ 1 min, with 0 % 5xx errors
-and the token cache hitting 100 %. The *exchange* row stays empty because the `auth` scenario does not call
-the exchange service.
+Grafana on **EKS** during the HPA test of 19/11 ([result](../devops/load-testing.md#resultado-no-eks)),
+from the start of the load to the end of k6: the gateway scales from 2 to 4 and then 6 replicas, with 0 % 5xx
+errors and the token cache hitting 100 %. The *exchange* row has no traffic because the `auth` scenario does
+not call the exchange service.
 
-![Store — plataforma dashboard during the HPA test](../devops/hpa/kind-hpa-grafana.png)
+![Store — plataforma dashboard on EKS during the HPA test](../devops/hpa/eks-hpa-grafana.png)
+
+The same test, rehearsed earlier on a kind cluster ([local trial run](../devops/load-testing.md#ensaio-local-kind)),
+showed the same pattern: 2 → 6 replicas in ≈ 1 min, 0 % errors.
 
 For this test the dashboard gained the **Réplicas no ar ao longo do tempo (HPA)** panel
 (`sum by (job) (up{job=~"gateway|exchange"})`, as steps), and the "Erros 5xx" panel now shows

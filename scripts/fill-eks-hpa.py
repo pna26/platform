@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""Preenche a seção "Resultado no EKS" de docs/devops/load-testing.md com a rodada eks-hpa.
+"""Monta o resultado de uma rodada com HPA (linha da tabela + linha do tempo) para a seção
+"Resultado no EKS" de docs/devops/load-testing.md.
 
 Lê o que o scripts/hpa-record.py gravou em load/results/<name>/ (resumo.json, com a linha do k6
 e a linha do tempo do HPA) e:
@@ -8,7 +9,9 @@ e a linha do tempo do HPA) e:
     o vídeo acelerado e os prints do Grafana;
   - copia o vídeo acelerado e os prints para docs/devops/hpa/ com o prefixo eks-hpa-.
 
-Só usa números do resumo: o que não foi medido fica "—". Rodar de novo sobrescreve.
+Só usa números do resumo: o que não foi medido fica "—". Se a página não tiver uma linha
+"| <name> | — | ..." e os marcadores (a seção já tem a rodada de 19/11, que não deve ser sobrescrita),
+o script não mexe em nada e só imprime o trecho em Markdown para ser colado à mão.
 
     python3 scripts/fill-eks-hpa.py                    # load/results/eks-hpa -> docs/devops/load-testing.md
     python3 scripts/fill-eks-hpa.py --name eks-hpa --doc docs/devops/load-testing.md --no-copy
@@ -68,13 +71,13 @@ def main() -> None:
     row = f"| {a.name} | {vus} | {num(reqs)} | {num(rate)} | {p50} | {p95} | {p99} | {err.replace('.', ',')} | {rep} |"
 
     text = doc.read_text(encoding="utf-8")
-    text, n = re.subn(rf"^\| {re.escape(a.name)} \|.*\|$", row, text, count=1, flags=re.M)
-    if n != 1:
-        sys.exit(f"não achei a linha '| {a.name} | ...' na tabela de {doc}")
+    in_place = bool(re.search(rf"^\| {re.escape(a.name)} \|.*\|$", text, flags=re.M)) and START in text and END in text
+    if in_place:
+        text = re.sub(rf"^\| {re.escape(a.name)} \|.*\|$", row, text, count=1, flags=re.M)
 
     # vídeo e prints
     media = []
-    if not a.no_copy:
+    if in_place and not a.no_copy:   # nunca sobrescreve a mídia de uma rodada já documentada
         dst = doc.parent / "hpa"
         dst.mkdir(exist_ok=True)
         fast = sorted(out.glob("hpa-*x.mp4"))
@@ -116,10 +119,12 @@ def main() -> None:
     lines.append(END)
     block = "\n".join(lines)
 
-    if START in text and END in text:
-        text = re.sub(re.escape(START) + r".*?" + re.escape(END), lambda _: block, text, count=1, flags=re.S)
-    else:
-        sys.exit(f"marcadores {START} / {END} não encontrados em {doc}")
+    if not in_place:
+        print(f">> {doc} não tem a linha '| {a.name} | ...' e os marcadores: nada foi alterado. Trecho para colar:\n")
+        print(row)
+        print("\n".join(lines[1:-1]))
+        return
+    text = re.sub(re.escape(START) + r".*?" + re.escape(END), lambda _: block, text, count=1, flags=re.S)
     doc.write_text(text, encoding="utf-8")
     print(row)
     print(f">> {doc.relative_to(ROOT) if doc.is_relative_to(ROOT) else doc} atualizado; mídia: {[f for _, f in media]}")

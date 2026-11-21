@@ -64,9 +64,9 @@ Details in [Architecture](arquitetura.md).
 | [Exchange](servicos/exchange.md) | 5% | Gabriel | :material-check: done |
 | [Bottlenecks](bottlenecks/index.md) | 20% | everyone | 7 implemented (2+ per member) and verified in compose/CI; messaging also on EKS (16/11) |
 | [AWS](devops/aws.md) | 5% | Nicolas | :material-check: done (CI signs in to AWS via OIDC since 10/11) |
-| [EKS](devops/eks.md) | 10% | Nicolas | cluster tested on 08/11 (manual deploy + smoke test); automatic deploy from CI proven on 16/11 ([runs](devops/eks.md#deploy-pelo-cicd)); load test with HPA on EKS via `scripts/eks-hpa.sh` ([result](devops/load-testing.md#resultado-no-eks)) |
+| [EKS](devops/eks.md) | 10% | Nicolas | cluster tested on 08/11 (manual deploy + smoke test); automatic deploy from CI proven on 16/11 ([runs](devops/eks.md#deploy-pelo-cicd)); load test with HPA on EKS on 19/11 ([result](devops/load-testing.md#resultado-no-eks)) |
 | [CI/CD (GitHub Actions)](devops/ci-cd.md) | 10% | Leonardo | pipeline ready in every repository; OIDC, push to ECR and deploy to EKS proven (account, auth and notification on 16/11, [evidence](devops/ci-cd.md#evidencia)); gateway, exchange and `infra` with the `lb` fix on the next cluster spin-up |
-| [Load testing](devops/load-testing.md) | 15% | Gabriel | done on compose and rehearsed with HPA on a kind cluster (12/11); EKS run automated by `scripts/eks-hpa.sh`, which fills in the [result](devops/load-testing.md#resultado-no-eks) |
+| [Load testing](devops/load-testing.md) | 15% | Gabriel | done on compose, rehearsed on a kind cluster (12/11) and run on EKS with the HPA scaling from 2 to 6 replicas (19/11, [result](devops/load-testing.md#resultado-no-eks), video and screenshots) |
 | [PaaS, costs and SLA](devops/custos-sla.md) | 10% | Gabriel | :material-check: done |
 | Documentation (MkDocs) | 10% | everyone | :material-check: done (published by GitHub Actions, with `mkdocs build --strict`) |
 
